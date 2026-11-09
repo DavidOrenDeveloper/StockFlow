@@ -14,7 +14,7 @@ export function render(root, { id }) {
   const prev = isCount ? null : lastCount(doc.site, doc.id);
   root.innerHTML = `<div class="page editor">
     <div class="bar sticky tight"><a class="icon-btn" href="#/${isCount ? 'counts' : 'orders'}" aria-label="${esc(t('back'))}">${ic('back', 22)}</a>
-      <div class="ttl"><b id="ttl"></b><small id="sub"></small></div><span class="grow"></span><span class="st" id="stChip"></span></div>
+      <div class="ttl"><b id="ttl"></b><small id="sub"></small></div><span class="grow"></span><button class="btn sm" id="undoBtn" disabled><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg> <span>${S.cfg.lang === 'he' ? 'בטל' : 'Undo'}</span></button><span class="st" id="stChip"></span></div>
     <details class="card meta" id="meta"><summary>${ic('sliders', 18)} ${esc(t('details'))}</summary><div class="metagrid">
       <label class="fld"><span>${esc(t('site'))}</span><select data-m="site">${S.sites.map(s => `<option value="${s.id}">${esc(nm(s, 'he'))}${s.en ? ' · ' + esc(s.en) : ''}</option>`).join('')}</select></label>
       <label class="fld"><span>${esc(t('date'))}</span><input type="date" data-m="date"></label>
@@ -37,6 +37,15 @@ export function render(root, { id }) {
   const head = () => { $('#ttl').textContent = `${isCount ? t('count') : t('order')} · ${nm(siteOf(doc.site), 'he') || ''}`; $('#sub').textContent = `${doc.date}${doc.worker ? ' · ' + doc.worker : ''}`; const c = $('#stChip'); c.className = 'st st-' + doc.status; c.textContent = t('st_' + doc.status); };
   const persist = async () => { await saveDoc(doc, { quiet: true }); saved = doc.updatedAt; const sv = $('#saved'); if (sv) sv.textContent = t('saved_at', { x: fmtDateTime(saved, S.cfg.lang).split(', ').pop() }); };
   const autosave = debounce(persist, 450);
+  const undo = []; let typed = null;
+  const push = e => { undo.push(e); if (undo.length > 100) undo.shift(); $('#undoBtn').disabled = false; };
+  function undoLast() {
+    const e = undo.pop(); $('#undoBtn').disabled = !undo.length; if (!e) return;
+    if ('h' in e) { if (e.h) (doc.hidden ||= {})[e.id] = true; else if (doc.hidden) delete doc.hidden[e.id]; if (!hidN()) flt = flt === 'hidden' ? 'all' : flt; persist(); filters(); draw(); progress(); return; }
+    const row = root.querySelector(`.row[data-id="${e.id}"]`);
+    if (row) setQty(row, e.v ?? null); else { if (e.v == null) delete doc.lines[e.id]; else doc.lines[e.id] = e.v; progress(); autosave(); }
+    toast(S.cfg.lang === 'he' ? 'הפעולה האחרונה בוטלה' : 'Last action undone');
+  }
   const hidN = () => Object.keys(doc.hidden || {}).filter(id => S.byId.has(id)).length;
   const hidPill = () => (hidN() ? [['hidden', `${S.cfg.lang === 'he' ? 'מוסתרים' : 'Hidden'} (${hidN()})`]] : []);
   const hideBtn = it => `<button class="btn sm" style="padding:1px 8px;font-size:11px;margin-top:3px" ${doc.hidden?.[it.id] ? 'data-unhide' : 'data-hide'}>${S.cfg.lang === 'he' ? (doc.hidden?.[it.id] ? 'החזר למסמך' : 'הסתר ממסמך זה') : (doc.hidden?.[it.id] ? 'Restore' : 'Hide from this doc')}</button>`;
@@ -91,11 +100,13 @@ export function render(root, { id }) {
     let clr = rowEl.querySelector('.clr'); if (isCount) { if (v != null && !clr) rowEl.querySelector('.qty').insertAdjacentHTML('beforeend', `<button class="clr" data-clr>${ic('x', 14)}</button>`); if (v == null && clr) clr.remove(); }
     progress(); autosave(); const sv = $('#saved'); if (sv) sv.textContent = '…';
   }
-  $('#list').addEventListener('input', e => { if (e.target.tagName !== 'INPUT') return; const row = e.target.closest('.row'); const raw = e.target.value.replace(',', '.'); setQty(row, raw.trim() === '' ? null : (num(raw) != null && num(raw) >= 0 ? num(raw) : doc.lines[row.dataset.id] ?? null)); });
+  $('#list').addEventListener('input', e => { if (e.target.tagName !== 'INPUT') return; const row = e.target.closest('.row'); if (typed !== row.dataset.id) { push({ id: row.dataset.id, v: doc.lines[row.dataset.id] }); typed = row.dataset.id; } const raw = e.target.value.replace(',', '.'); setQty(row, raw.trim() === '' ? null : (num(raw) != null && num(raw) >= 0 ? num(raw) : doc.lines[row.dataset.id] ?? null)); });
   $('#list').addEventListener('focusout', e => { if (e.target.tagName === 'INPUT') { const row = e.target.closest('.row'), v = doc.lines[row.dataset.id]; e.target.value = v == null ? '' : fmtQty(v); } });
-  $('#list').addEventListener('focusin', e => { if (e.target.tagName === 'INPUT') e.target.select(); });
+  $('#list').addEventListener('focusin', e => { if (e.target.tagName === 'INPUT') { typed = null; e.target.select(); } });
   $('#list').addEventListener('click', e => {
     const row = e.target.closest('.row'); if (!row) return; const id = row.dataset.id, cur = doc.lines[id];
+    if (e.target.closest('[data-inc],[data-dec],[data-clr],[data-sug]')) push({ id, v: cur });
+    if (e.target.closest('[data-hide]')) push({ id, h: false }); if (e.target.closest('[data-unhide]')) push({ id, h: true });
     if (e.target.closest('[data-zoom]')) { const it = S.byId.get(id); zoomImg(imgOf(it), nm(it)); }
     else if (e.target.closest('[data-inc]')) setQty(row, (cur ?? 0) + 1);
     else if (e.target.closest('[data-dec]')) setQty(row, Math.max(0, (cur ?? 1) - 1));
@@ -108,6 +119,7 @@ export function render(root, { id }) {
   $('#cats').onclick = e => { const b = e.target.closest('[data-c]'); if (b) { cat = b.dataset.c; filters(); draw(); } };
   $('#q').oninput = debounce(e => { q = e.target.value; $('#qx').hidden = !q; draw(); }, 120);
   $('#qx').onclick = () => { $('#q').value = ''; q = ''; $('#qx').hidden = true; draw(); };
+  $('#undoBtn').onclick = undoLast;
   $('#saveBtn').onclick = async () => { await persist(); toast(t('draft_saved')); };
   $('#exp').onclick = async () => { await persist(); exportDialog({ kind: 'doc', doc }); };
   $('#done').onclick = async () => {

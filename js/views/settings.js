@@ -24,7 +24,7 @@ export function render(root, { rerender }) {
       ${sw('synOn', t('use_synonyms'), c.synOn, t('use_synonyms_hint'))}${sw('fuzzy', t('use_fuzzy'), c.fuzzy, t('use_fuzzy_hint'))}
       ${worker ? '' : `<div class="btnrow wrap"><button class="btn" id="syn">${ic('list', 18)} ${esc(t('manage_synonyms'))}</button></div>`}</section>
     ${worker ? '' : `<section class="card sec"><h2>${ic('sliders', 20)} ${esc(t('lists'))}</h2><div class="btnrow wrap">
-      <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button></div></section>`}
+      <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button><button class="btn" id="clrEm">${c.lang === 'he' ? 'איפוס כל המינימום (חרום)' : 'Reset all minimums'}</button></div></section>`}
     <section class="card sec"><h2>${ic('download', 20)} ${esc(t('data'))}</h2>
       <p class="hint">${esc(t('last_backup'))}: <b>${c.lastBackup ? esc(fmtDateTime(c.lastBackup, c.lang)) : esc(t('never'))}</b></p>
       <div class="btnrow wrap"><button class="btn primary" id="bk">${ic('download', 18)} ${esc(t('backup_full'))}</button><button class="btn" id="bks">${ic('share', 18)} ${esc(t('backup_share'))}</button>${worker ? '' : `<button class="btn" id="rs">${ic('upload', 18)} ${esc(t('restore'))}</button>`}</div>
@@ -37,12 +37,19 @@ export function render(root, { rerender }) {
       <p class="hint">${esc(t('update_safe'))}</p></section></div>`;
   const $ = s => root.querySelector(s);
   $('#lang').onclick = async e => { const b = e.target.closest('[data-l]'); if (b) { await setLang(b.dataset.l); } };
-  root.querySelectorAll('[data-sw]').forEach(i => i.onchange = async () => { await setCfg({ [i.dataset.sw]: i.checked }); if (i.dataset.sw === 'workerMode') rerender(); });
+  root.querySelectorAll('[data-sw]').forEach(i => i.onchange = async () => { await setCfg({ [i.dataset.sw]: i.checked }); if (i.dataset.sw === 'workerMode') { const b = document.getElementById('skuBtn'); if (b) b.style.display = i.checked ? 'none' : ''; rerender(); } });
   root.querySelector('[data-sel="theme"]').onchange = async e => { await setCfg({ theme: e.target.value }); document.documentElement.dataset.theme = e.target.value; };
   root.querySelector('[data-in="worker"]').onchange = e => setCfg({ worker: e.target.value.trim() });
   const syn = $('#syn'); if (syn) syn.onclick = synonymsManager;
   root.querySelectorAll('[data-list]').forEach(b => b.onclick = () => listEditor(b.dataset.list));
   const fl = $('#fld'); if (fl) fl.onclick = () => folderManager();
+  const em = $('#clrEm'); if (em) em.onclick = async () => {
+    const he = S.cfg.lang === 'he', n = S.items.filter(i => i.emergency != null).length;
+    if (!n) return toast(he ? 'אין ערכי מינימום להסרה' : 'No minimums set');
+    if (!(await confirmDlg(he ? `לאפס את המינימום (חרום) של ${n} פריטים? אפשר להזין אותו מחדש בכל פריט בנפרד.` : `Reset the minimum of ${n} items? You can set it again per item.`, { danger: true, ok: he ? 'אפס' : 'Reset' }))) return;
+    const now = new Date().toISOString(); S.items.forEach(i => { if (i.emergency != null) { i.emergency = null; i.updatedAt = now; } });
+    const { putMany } = await import('../db.js'); await putMany('items', S.items); await log('item~', 'reset minimums'); toast(he ? 'המינימום אופס' : 'Minimums reset');
+  };
   const stamped = async () => { const b = await backupAll(); return new Blob([JSON.stringify(b)], { type: 'application/json' }); };
   $('#bk').onclick = async () => { download(await stamped(), `backup_${stamp()}.json`); await log('backup', 'download'); toast(t('downloaded')); rerender(); };
   $('#bks').onclick = async () => { await shareOrDownload(await stamped(), `backup_${stamp()}.json`, t('backup_full')); await log('backup', 'share'); rerender(); };
