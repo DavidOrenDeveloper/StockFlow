@@ -1,0 +1,26 @@
+{
+  "id": "/stockcount-7f3a9c",
+  "name": "ספירת מלאי והזמנות · Stock Count & Orders",
+  "short_name": "ספירת מלאי",
+  "description": "ספירת מלאי והזמנות לפריוריטי – קטלוג תלת-לשוני, עובד גם בלי אינטרנט",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./?source=pwa-stockcount-7f3a9c",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f4f6fb",
+  "theme_color": "#1f5fbf",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "ספירה חדשה", "short_name": "ספירה", "url": "./#/new/count", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "הזמנה חדשה", "short_name": "הזמנה", "url": "./#/new/order", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "קטלוג", "short_name": "קטלוג", "url": "./#/catalog", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
