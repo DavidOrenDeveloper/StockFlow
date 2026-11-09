@@ -107,16 +107,16 @@ export async function saveDoc(d, { quiet = false } = {}) {
 export async function deleteDoc(id) { S.docs = S.docs.filter(d => d.id !== id); await db.del('docs', id); await log('doc-', id); emit(); }
 export async function setStatus(d, st) { d.status = st; await saveDoc(d); await log('status', `${d.type}:${st}`, d.id); }
 export const docItems = d => { // rows for a doc: catalog items (ordered) + deleted items kept via snapshot
-  const rows = S.items.map(it => ({ id: it.id, it, snap: null }));
-  for (const id of Object.keys(d.lines)) if (!S.byId.has(id) && d.snap[id]) rows.push({ id, it: null, snap: d.snap[id] });
+  const rows = S.items.filter(it => !d.hidden?.[it.id]).map(it => ({ id: it.id, it, snap: null }));
+  for (const id of Object.keys(d.lines)) if (!S.byId.has(id) && d.snap[id] && !d.hidden?.[id]) rows.push({ id, it: null, snap: d.snap[id] });
   return rows;
 };
 export function lastCount(siteId, excludeId) {
   return S.docs.filter(d => d.type === 'count' && d.site === siteId && d.id !== excludeId && Object.keys(d.lines).length).sort((a, b) => (b.date + b.updatedAt).localeCompare(a.date + a.updatedAt))[0] || null;
 }
 export function orderFromCount(count) {
-  const o = newDoc('order'); o.site = count.site; o.note = `from count ${count.date}`;
-  for (const it of S.items) { const q = count.lines[it.id]; if (it.emergency != null && q != null && q < it.emergency) o.lines[it.id] = it.emergency - q; }
+  const o = newDoc('order'); o.site = count.site; o.note = `from count ${count.date}`; o.hidden = { ...(count.hidden || {}) };
+  for (const it of S.items) { const q = count.lines[it.id]; if (!count.hidden?.[it.id] && it.emergency != null && q != null && q < it.emergency) o.lines[it.id] = it.emergency - q; }
   return o;
 }
 export async function importDocEnvelope(env, { onConflict } = {}) {

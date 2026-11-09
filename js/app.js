@@ -8,6 +8,7 @@ import * as catalog from './views/catalog.js';
 import * as docs from './views/docs.js';
 import * as editor from './views/editor.js';
 import * as settings from './views/settings.js';
+import * as skuTools from './views/skuTools.js';
 
 let cleanup = null, updateReady = false, installEvt = null;
 const NAV = [['catalog', 'box', 'catalog'], ['counts', 'clipboard', 'counts'], ['orders', 'cart', 'orders'], ['files', 'folder', 'files'], ['settings', 'sliders', 'settings']];
@@ -15,6 +16,7 @@ const NAV = [['catalog', 'box', 'catalog'], ['counts', 'clipboard', 'counts'], [
 function shell() {
   const app = document.getElementById('app');
   app.innerHTML = `<header class="top"><div class="brand"><span class="logo">${ic('box', 20)}</span><b>${esc(t('brand'))}</b></div><span class="grow"></span>
+    <a class="btn" href="#/sku" id="skuBtn">${ic('table', 16)} <span>${S.cfg.lang === 'he' ? 'מק"טים' : 'SKUs'}</span></a>
     <button class="btn upd" id="updBtn" ${updateReady ? '' : 'hidden'}>${ic('refresh', 16)} <span>${esc(t('update_now'))}</span></button>
     <button class="btn" id="instBtn" ${installEvt ? '' : 'hidden'}>${ic('download', 16)} <span>${esc(t('install'))}</span></button>
     <div class="seg" role="group" aria-label="language">${[['he', 'עב', 'עברית'], ['en', 'EN', 'English'], ['tr', 'ABC', 'Hebrew in Latin letters']].map(([k, l, ti]) => `<button data-l="${k}" title="${ti}" class="${S.cfg.lang === k ? 'on' : ''}">${l}</button>`).join('')}</div></header>
@@ -35,6 +37,7 @@ function route() {
   else if (r === 'orders') cleanup = docs.render(view, { type: 'order' });
   else if (r === 'files') cleanup = docs.render(view, { type: 'all' });
   else if (r === 'doc') cleanup = editor.render(view, { id: arg });
+  else if (r === 'sku') cleanup = skuTools.render(view);
   else if (r === 'settings') cleanup = settings.render(view, { rerender });
   else if (r === 'new') { location.replace('#/' + (arg === 'order' ? 'orders' : 'counts')); setTimeout(() => docs.createDocDialog(arg === 'order' ? 'order' : 'count', d => { location.hash = '#/doc/' + d.id; }), 80); }
   else cleanup = catalog.render(view);
