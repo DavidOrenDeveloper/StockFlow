@@ -1,14 +1,14 @@
 // List of counts / orders / all files (with folders, worker grouping, import of worker JSON files)
-import { S, nm, siteOf, newDoc, saveDoc, deleteDoc, importDocEnvelope, DOC_STATUS, saveList, log } from '../store.js';
+import { S, nm, siteOf, newDoc, saveDoc, deleteDoc, importDocEnvelope, DOC_STATUS, saveList, log, inList } from '../store.js';
 import { t } from '../i18n.js';
 import { esc, fmtDate, fmtQty, readFileText, toast, uid } from '../util.js';
 import { ic } from '../icons.js';
-import { openModal, confirmDlg, menu, promptDlg } from '../modal.js';
+import { openModal, confirmDlg, menu, promptDlg, navigate } from '../modal.js';
 import { exportDialog } from './exportDialog.js';
 
 const prog = d => {
   const n = Object.keys(d.lines).length;
-  if (d.type === 'count') return `${n}/${S.items.length}`;
+  if (d.type === 'count') return `${n}/${S.items.filter(i => inList(d, i)).length}`;
   const tot = Object.values(d.lines).reduce((a, b) => a + (b > 0 ? 1 : 0), 0); return t('n_lines', { n: tot });
 };
 export function createDocDialog(type, onCreate) {
@@ -79,7 +79,7 @@ export function render(root, { type = 'all' } = {}) {
   }
   $('#filters').addEventListener('input', e => { const k = e.target.dataset.f; if (!k) return; f[k] = e.target.value; if (k !== 'q') drawFilters(); draw(); if (k === 'q') return; });
   $('#filters').addEventListener('change', e => { const k = e.target.dataset.f; if (k && k !== 'q') { f[k] = e.target.value; draw(); } });
-  const go = d => { location.hash = '#/doc/' + d.id; };
+  const go = d => navigate('#/doc/' + d.id);
   const mk = tp => () => createDocDialog(tp, go);
   if (type === 'all') { $('#nc').onclick = mk('count'); $('#no').onclick = mk('order'); $('#fld').onclick = folderManager; } else $('#new').onclick = mk(type);
   $('#imp').onclick = () => $('#file').click();

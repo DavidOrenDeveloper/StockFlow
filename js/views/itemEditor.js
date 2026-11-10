@@ -25,6 +25,7 @@ export function editItem(item, { isNew = false, onDone } = {}) {
         <label class="fld"><span>${esc(t('unit'))}</span><select data-f="unit">${opt(S.units, d.unit)}</select></label></div>
         <div class="fld"><span>${esc(t('synonyms_item'))}</span><div class="chips" data-chips></div><input data-syn placeholder="${esc(t('syn_ph'))}"></div>
         <label class="fld"><span>${esc(t('note'))}</span><input data-f="note" value="${esc(d.note || '')}"></label>
+        ${d.bulk !== undefined ? `<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-inlist ${d.bulk ? '' : 'checked'}><span>${esc(S.cfg.lang === 'he' ? 'להציג ברשימת הספירה וההזמנה' : 'Show in count & order lists')}</span></label>` : ''}
       </div></div>`,
     actions: `${isNew ? '' : `<button class="btn danger-o" data-del>${ic('trash', 16)} ${esc(t('delete'))}</button>`}<span class="grow"></span><button class="btn" data-no>${esc(t('cancel'))}</button><button class="btn primary" data-save>${esc(t('save'))}</button>`
   });
@@ -47,10 +48,11 @@ export function editItem(item, { isNew = false, onDone } = {}) {
   m.$('[data-save]').onclick = async () => {
     addSyn();
     const o = { ...d, he: he.value.trim(), en: en.value.trim(), tr: tr.value.trim(), sku: F('sku').value.trim(), emergency: num(F('emergency').value), cat: F('cat').value, unit: F('unit').value, note: F('note').value.trim() };
+    if (d.bulk !== undefined) o.bulk = !m.$('[data-inlist]').checked;
     if (!o.he && !o.en) { he.focus(); he.classList.add('err'); return; }
     if (o.sku) { const dup = S.items.find(i => i.sku === o.sku && i.id !== o.id); if (dup && !(await confirmDlg(t('dup_sku', { n: dup.he })))) return; }
     if (pending) await setImage(o, pending); else if (removeImg) await removeImage(o);
     await saveItem(o); m.close(); toast(t('saved')); onDone && onDone(o);
   };
-  setTimeout(() => he.focus(), 80);
+  if (isNew) setTimeout(() => he.focus(), 80);   // no auto-keyboard when just opening an existing item: one Back press closes it
 }

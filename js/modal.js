@@ -2,12 +2,31 @@ import { esc } from './util.js';
 import { t } from './i18n.js';
 import { ic } from './icons.js';
 const root = () => document.getElementById('modalRoot');
+// Back-button support: each open dialog owns one history entry. Android Back (popstate) closes the top dialog; closing a dialog by code pops its entry.
+const stack = [], waiters = []; let ignore = 0;
+const flush = () => { if (ignore > 0) return; while (waiters.length) waiters.shift()(); };
+/** called by the app's popstate listener first; returns true when the event was consumed by a dialog */
+export function handlePop() {
+  if (ignore > 0) { ignore--; flush(); return true; }
+  const top = stack[stack.length - 1]; if (!top) return false;
+  top.pop(); return true;
+}
+/** change the hash after any pending dialog-close has settled (a queued history.back() must not eat the navigation) */
+export function navigate(h) { const go = () => { location.hash = h; }; ignore > 0 ? waiters.push(go) : go(); }
 /** Opens a modal. content: html string. Returns {el, close}. */
 export function openModal({ title = '', content = '', wide = false, actions = '', onClose, cls = '' }) {
   const ov = document.createElement('div'); ov.className = 'overlay';
   ov.innerHTML = `<div class="modal ${wide ? 'wide' : ''} ${cls}" role="dialog" aria-modal="true"><header><h2>${esc(title)}</h2><button class="icon-btn" data-close aria-label="${esc(t('close'))}">${ic('x')}</button></header><div class="mbody">${content}</div>${actions ? `<footer>${actions}</footer>` : ''}</div>`;
   root().appendChild(ov); document.body.classList.add('noscroll');
-  const close = v => { ov.remove(); if (!root().children.length) document.body.classList.remove('noscroll'); onClose && onClose(v); };
+  const entry = { pop: null }; let closed = false, viaPop = false;
+  try { history.pushState({ sf: 'modal' }, ''); stack.push(entry); } catch (e) { /* no history support: Back simply behaves as before */ }
+  const close = v => {
+    if (closed) return; closed = true;
+    const i = stack.indexOf(entry);
+    if (i >= 0) { stack.splice(i, 1); if (!viaPop) { ignore++; history.back(); setTimeout(() => { if (ignore > 0) { ignore = 0; flush(); } }, 700); } }
+    ov.remove(); if (!root().children.length) document.body.classList.remove('noscroll'); onClose && onClose(v);
+  };
+  entry.pop = () => { viaPop = true; close(); };
   ov.addEventListener('mousedown', e => { if (e.target === ov) close(); });
   ov.querySelector('[data-close]').onclick = () => close();
   ov.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });

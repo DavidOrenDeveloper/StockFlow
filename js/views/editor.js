@@ -1,5 +1,5 @@
 // Stock-count / order editor. Empty = not checked yet; 0 = checked, none. Auto-saves as draft after every change.
-import { S, nm, catOf, unitOf, imgOf, runSearch, saveDoc, setStatus, siteOf, DOC_STATUS, lastCount, orderFromCount, deleteDoc, log } from '../store.js';
+import { S, nm, catOf, unitOf, imgOf, runSearch, saveDoc, setStatus, siteOf, DOC_STATUS, lastCount, orderFromCount, deleteDoc, log, inList } from '../store.js';
 import { t } from '../i18n.js';
 import { esc, debounce, num, fmtQty, fmtDateTime, toast } from '../util.js';
 import { ic } from '../icons.js';
@@ -49,7 +49,7 @@ export function render(root, { id }) {
   const hidN = () => Object.keys(doc.hidden || {}).filter(id => S.byId.has(id)).length;
   const hidPill = () => [['hidden', `${S.cfg.lang === 'he' ? 'מוסתרים' : 'Hidden'} (${hidN()})`]];
   const hideBtn = it => `<button class="btn sm" style="padding:1px 8px;font-size:11px;margin-top:3px" ${doc.hidden?.[it.id] ? 'data-unhide' : 'data-hide'}>${S.cfg.lang === 'he' ? (doc.hidden?.[it.id] ? 'החזר למסמך' : 'הסתר ממסמך זה') : (doc.hidden?.[it.id] ? 'Restore' : 'Hide from this doc')}</button>`;
-  const stats = () => { const n = Object.keys(doc.lines).filter(id => !doc.hidden?.[id]).length, tot = S.items.length - hidN(); return { n, tot, ord: Object.values(doc.lines).filter(v => v > 0).length }; };
+  const stats = () => { const n = Object.keys(doc.lines).filter(id => !doc.hidden?.[id]).length, tot = S.items.filter(it => inList(doc, it) && !doc.hidden?.[it.id]).length; return { n, tot, ord: Object.values(doc.lines).filter(v => v > 0).length }; };
   function progress() {
     const s = stats(), pct = isCount ? s.n / (s.tot || 1) : Math.min(1, s.ord / 12);
     { const cn = $('#cartN'); if (cn) cn.textContent = isCount ? s.n : s.ord; }
@@ -61,7 +61,7 @@ export function render(root, { id }) {
     $('#fl').innerHTML = isCount
       ? [['all', t('all')], ['uncounted', `${t('show_uncounted')} (${s.tot - s.n})`], ['counted', t('counted')], ['short', t('below_emergency')], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('')
       : [['all', t('all')], ['ordered', `${t('ordered')} (${s.ord})`], ['short', t('below_emergency')], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('');
-    $('#cats').innerHTML = `<button class="pill ${!cat ? 'on' : ''}" data-c="">${esc(t('all_cats'))}</button>` + S.cats.map(c => `<button class="pill ${cat === c.id ? 'on' : ''}" data-c="${c.id}">${esc(nm(c))}</button>`).join('');
+    $('#cats').innerHTML = `<button class="pill ${!cat ? 'on' : ''}" data-c="">${esc(t('all_cats'))}</button>` + S.cats.filter(c => S.items.some(i => i.cat === c.id && inList(doc, i))).map(c => `<button class="pill ${cat === c.id ? 'on' : ''}" data-c="${c.id}">${esc(nm(c))}</button>`).join('');
   }
   const passes = it => {
     if (cat && it.cat !== cat) return false; const v = doc.lines[it.id];
@@ -89,7 +89,7 @@ export function render(root, { id }) {
       if (ap.length) html += `<h3 class="grp soft">${esc(t('similar_matches'))}</h3>${ap.map(x => rowHtml(x.it)).join('')}`;
       if (!ex.length && !ap.length) html = `<div class="empty"><p>${esc(t('no_results'))}</p></div>`;
     } else {
-      for (const c of S.cats) { const its = S.items.filter(i => i.cat === c.id && passes(i)); if (its.length) html += `<h3 class="grp">${esc(nm(c))} <b>${its.length}</b></h3>${its.map(rowHtml).join('')}`; }
+      for (const c of S.cats) { const its = S.items.filter(i => i.cat === c.id && inList(doc, i) && passes(i)); if (its.length) html += `<h3 class="grp">${esc(nm(c))} <b>${its.length}</b></h3>${its.map(rowHtml).join('')}`; }
       if (!html) html = `<div class="empty"><p>${esc(flt === 'uncounted' ? t('all_counted') : t('no_results'))}</p></div>`;
     }
     $('#list').innerHTML = html;

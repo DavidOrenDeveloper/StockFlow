@@ -50,6 +50,7 @@ export async function init() {
   if (!S.cfg.seeded && !items.length) await seed();
   await loadImages(); reindex();
   await applyUnitFix();
+  await applyShapirImport();
 }
 // One-time: cables/wires/conduits etc. were all 'unit'; set them to meters (only where the user did not change the unit).
 async function applyUnitFix() {
@@ -60,6 +61,33 @@ async function applyUnitFix() {
     if (ch.length) { await db.putMany('items', ch); await log('units', `updated ${ch.length}`); }
     S.cfg.unitFix140 = true; await db.kvSet('cfg', S.cfg);
   } catch (e) { /* offline: retry next start */ }
+}
+// One-time per device: puts the whole Shapir catalog (data/shapir.json) into the main catalog, grouped by category. Items whose SKU is already in the catalog are skipped.
+async function applyShapirImport() {
+  if (S.cfg.shapirAll150) return;
+  try {
+    const j = await (await fetch('data/shapir.json', { cache: 'no-cache' })).json();
+    let catsChanged = false;
+    for (const c of j.cats || []) if (!S.cats.some(x => x.id === c.id)) { S.cats.push({ ...c }); catsChanged = true; }
+    if (catsChanged) await db.kvSet('cats', S.cats);
+    const haveSku = new Set(S.items.map(i => String(i.sku || '').trim()).filter(Boolean)), haveKey = new Set(S.items.map(i => i.srcKey).filter(Boolean));
+    const now = new Date().toISOString(), add = [], unit0 = S.units[0]?.id || 'u_unit'; let order = S.items.reduce((m, i) => Math.max(m, i.order || 0), 0);
+    for (const [sku, name, unit, img, cat, alts] of j.items) {
+      const id = 'sh_' + sku;
+      if (haveSku.has(sku) || haveKey.has(sku + '|' + name) || S.byId.has(id)) continue;
+      add.push({ id, sku, he: name, en: '', tr: '', cat, unit: S.units.some(u => u.id === unit) ? unit : unit0, emergency: null, syn: alts || [], imgId: null, imgUrl: img ? `data/img/${img}.webp` : '', note: '', order: ++order, src: 'shapir', srcKey: sku + '|' + name, bulk: true, createdAt: now, updatedAt: now });
+    }
+    if (add.length) { await db.putMany('items', add); S.items.push(...add); reindex(); await log('shapir', `imported ${add.length}`); }
+    S.cfg.shapirAll150 = true; await db.kvSet('cfg', S.cfg);
+  } catch (e) { /* offline: retry next start */ }
+}
+// Warms the image cache in the background so photos also work offline on site.
+export async function prefetchImages() {
+  if (S.cfg.imgPre150 || !navigator.onLine || !(navigator.serviceWorker && navigator.serviceWorker.controller)) return;
+  const urls = [...new Set(S.items.map(i => i.imgUrl).filter(Boolean))]; let k = 0;
+  const run = async () => { while (k < urls.length) { const u = urls[k++]; try { await fetch(u); } catch (e) { /* skip */ } } };
+  await Promise.all([run(), run(), run()]);
+  S.cfg.imgPre150 = true; await db.kvSet('cfg', S.cfg);
 }
 async function seed() {
   const seed = await (await fetch('data/seed.json', { cache: 'no-cache' })).json();
@@ -76,13 +104,13 @@ async function loadImages() {
   S.img.forEach(u => URL.revokeObjectURL(u)); S.img.clear();
   for (const r of await db.getAll('images')) S.img.set(r.id, URL.createObjectURL(r.blob));
 }
-export const imgOf = it => (it && it.imgId && S.img.get(it.imgId)) || '';
+export const imgOf = it => (it && ((it.imgId && S.img.get(it.imgId)) || it.imgUrl)) || '';
 export async function setImage(item, blob) {
   const id = item.imgId || ('img_' + item.id);
   await db.put('images', { id, blob }); const old = S.img.get(id); if (old) URL.revokeObjectURL(old);
   S.img.set(id, URL.createObjectURL(blob)); item.imgId = id;
 }
-export async function removeImage(item) { if (item.imgId) { await db.del('images', item.imgId); S.img.delete(item.imgId); item.imgId = null; } }
+export async function removeImage(item) { if (item.imgId) { await db.del('images', item.imgId); S.img.delete(item.imgId); item.imgId = null; } item.imgUrl = ''; }
 
 // ---------- items ----------
 export const newItem = () => ({ id: uid('i'), sku: '', he: '', en: '', tr: '', cat: S.cats[0]?.id || '', unit: S.units[0]?.id || '', emergency: null, syn: [], imgId: null, note: '', order: Math.max(0, ...S.items.map(i => i.order || 0)) + 1, createdAt: new Date().toISOString() });
@@ -117,8 +145,10 @@ export async function saveDoc(d, { quiet = false } = {}) {
 }
 export async function deleteDoc(id) { S.docs = S.docs.filter(d => d.id !== id); await db.del('docs', id); await log('doc-', id); emit(); }
 export async function setStatus(d, st) { d.status = st; await saveDoc(d); await log('status', `${d.type}:${st}`, d.id); }
+// Items bulk-imported from the Shapir catalog are searchable everywhere, but appear in a count / order sheet only once a quantity was entered (or when switched on in the item).
+export const inList = (d, it) => !it.bulk || d.lines[it.id] != null;
 export const docItems = d => { // rows for a doc: catalog items (ordered) + deleted items kept via snapshot
-  const rows = S.items.filter(it => !d.hidden?.[it.id]).map(it => ({ id: it.id, it, snap: null }));
+  const rows = S.items.filter(it => !d.hidden?.[it.id] && inList(d, it)).map(it => ({ id: it.id, it, snap: null }));
   for (const id of Object.keys(d.lines)) if (!S.byId.has(id) && d.snap[id] && !d.hidden?.[id]) rows.push({ id, it: null, snap: d.snap[id] });
   return rows;
 };
@@ -147,13 +177,13 @@ export async function exportCatalogBlob() {
   const kv = { cats: S.cats, units: S.units, sites: S.sites, groups: S.groups };
   return new Blob([JSON.stringify({ app: APP_ID, kind: 'catalog', appVersion: APP_VERSION, createdAt: new Date().toISOString(), kv, items: S.items, images })], { type: 'application/json' });
 }
-async function replaceCatalog({ items, images, cats, units, groups, sites }) {
+async function replaceCatalog({ items, images, cats, units, groups, sites, reimportShapir = false }) {
   await db.clear('items'); await db.clear('images'); await db.putMany('items', items);
   for (const im of images) await db.put('images', { id: im.id, blob: im.blob });
   const uni = (cur, base) => [...base, ...cur.filter(x => !base.some(b => b.id === x.id))];
   await db.kvSet('cats', uni(S.cats, cats)); await db.kvSet('units', uni(S.units, units)); await db.kvSet('groups', uni(S.groups, groups));
   await db.kvSet('sites', [...S.sites, ...sites.filter(x => !S.sites.some(c => c.id === x.id))]);
-  S.cfg.unitFix140 = true; await db.kvSet('cfg', S.cfg);
+  S.cfg.unitFix140 = true; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
   await init(); emit();
 }
 export async function importCatalog(b) {
@@ -167,7 +197,7 @@ export async function restoreDefaultCatalog() {
   const items = seed.items.map(r => { const { img, ...it } = r; return { ...it, imgId: img ? r.id : null, createdAt: now, updatedAt: now, _img: img }; });
   for (let i = 0; i < items.length; i += 24) await Promise.all(items.slice(i, i + 24).map(async it => { if (!it._img) return; try { images.push({ id: it.id, blob: await (await fetch(it._img)).blob() }); } catch (e) { it.imgId = null; } }));
   items.forEach(it => { delete it._img; });
-  await replaceCatalog({ items, images, cats: seed.categories, units: seed.units, groups: seed.synonyms, sites: seed.sites });
+  await replaceCatalog({ items, images, cats: seed.categories, units: seed.units, groups: seed.synonyms, sites: seed.sites, reimportShapir: true });
   await log('catalog', 'default restored');
 }
 

@@ -23,7 +23,7 @@ const CATS = [[/חוט|כבל|מוליך/, 'c_wire'], [/צינור|שלה|קוב
 const guessCat = n => (CATS.find(([re]) => re.test(n)) || [0, S.cats.find(c => c.id === 'c_acc')?.id || S.cats[0]?.id])[1];
 
 export function render(root) {
-  let tab = 'match', showAll = false, shown = 15, q = '';
+  let tab = 'match', showAll = false, shown = 15, q = '', adShown = 40;
   const skipped = new Set();
   root.innerHTML = `<div class="page"><div class="bar"><b>${esc(L('מק"טי שפיר', 'Shapir SKUs'))}</b></div>
     <div class="chips-row"><button class="pill" data-t="match"></button><button class="pill" data-t="add"></button></div><div id="body"><div class="spinner"></div></div></div>`;
@@ -55,7 +55,8 @@ export function render(root) {
     $('#body').innerHTML = `<div class="bar tight"><div class="searchbox">${ic('search', 18)}<input id="aq" type="search" value="${esc(q)}" placeholder="${esc(L('חפש פריט או מק"ט בקטלוג שפיר…', 'Search Shapir name or SKU…'))}"></div></div>
       ${res.map(c => `<div class="card" style="padding:8px 10px;margin:6px 0;display:flex;gap:8px;align-items:center">${c.img ? `<img src="data/img/${c.img}.webp" loading="lazy" style="width:44px;height:44px;object-fit:contain">` : ''}<div style="flex:1">${esc(c.name)}<br><small dir="ltr">${esc(c.sku)}</small></div>${have.has(c.key) ? `<span class="tag">${esc(L('נוסף', 'Added'))}</span>` : `<button class="btn sm primary" data-add="${esc(c.key)}">${ic('plus', 14)} ${esc(L('הוסף', 'Add'))}</button>`}</div>`).join('') || (q ? `<div class="empty"><p>${esc(L('לא נמצא', 'No results'))}</p></div>` : '')}
       <h4 style="margin:14px 0 4px">${esc(L('פריטים שהוספת', 'Items you added'))} (${ad.length})</h4>
-      ${ad.map(i => `<div class="card" style="padding:8px 10px;margin:6px 0;display:flex;gap:8px;align-items:center"><div style="flex:1">${esc(nm(i))}<br><small dir="ltr">${esc(i.sku)}</small></div><button class="btn sm" data-del="${i.id}">${esc(L('הסר', 'Remove'))}</button></div>`).join('')}
+      ${ad.slice(0, adShown).map(i => `<div class="card" style="padding:8px 10px;margin:6px 0;display:flex;gap:8px;align-items:center"><div style="flex:1">${esc(nm(i))}<br><small dir="ltr">${esc(i.sku)}</small></div><button class="btn sm" data-del="${i.id}">${esc(L('הסר', 'Remove'))}</button></div>`).join('')}
+      ${ad.length > adShown ? `<button class="btn" data-adm>${esc(L('עוד', 'More'))} (${ad.length - adShown})</button>` : ''}
       ${ad.length > 1 ? `<button class="btn" data-delall>${esc(L('הסר את כל הפריטים שהוספתי', 'Remove all added items'))}</button>` : ''}`;
     const inp = $('#aq'); if (inp) { inp.oninput = debounce(() => { q = inp.value; drawAdd(); const n = $('#aq'); n.focus(); n.setSelectionRange(q.length, q.length); }, 250); }
   }
@@ -67,6 +68,7 @@ export function render(root) {
     if (d.t) { tab = d.t; draw(); }
     else if (d.f) { showAll = d.f === 'all'; shown = 15; draw(); }
     else if (d.more !== undefined) { shown += 15; draw(); }
+    else if (d.adm !== undefined) { adShown += 40; drawAdd(); }
     else if (d.ap) { const [id, sku] = d.ap.split('|'); approve(id, sku); }
     else if (d.man) { const v = b.closest('.card').querySelector('.man').value.trim(); if (v) approve(d.man, v); }
     else if (d.skip) { skipped.add(d.skip); draw(); }

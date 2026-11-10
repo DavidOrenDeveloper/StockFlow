@@ -1,7 +1,8 @@
 /* Service worker – scoped to this folder only. Cache names are prefixed with the app id, so it never touches other apps on the same domain. */
 const APP_ID = 'stockcount-7f3a9c';
-const VERSION = '1.4.0';                       // keep equal to js/config.js APP_VERSION and version.json
+const VERSION = '1.5.0';                       // keep equal to js/config.js APP_VERSION and version.json
 const CACHE = `${APP_ID}-cache-${VERSION}`;
+const IMG_CACHE = `${APP_ID}-img-v2`;           // product images: survives app updates; bump the suffix only when image files are replaced
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'version.json', 'css/app.css', 'data/seed.json', 'data/shapir.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
@@ -14,7 +15,7 @@ self.addEventListener('install', e => {
 });
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k.startsWith(`${APP_ID}-cache-`) && k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if ((k.startsWith(`${APP_ID}-cache-`) && k !== CACHE) || (k.startsWith(`${APP_ID}-img-`) && k !== IMG_CACHE)) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -23,6 +24,13 @@ self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin || !url.pathname.startsWith(new URL('./', self.location).pathname)) return;
   if (url.pathname.endsWith('/version.json')) { e.respondWith(fetch(req, { cache: 'no-store' }).catch(() => caches.match(req))); return; }
+  if (url.pathname.includes('/data/img/')) {
+    e.respondWith((async () => {
+      const c = await caches.open(IMG_CACHE), hit = await c.match(req); if (hit) return hit;
+      try { const res = await fetch(req); if (res.ok) c.put(req, res.clone()); return res; } catch (err) { return new Response('', { status: 504 }); }
+    })());
+    return;
+  }
   e.respondWith((async () => {
     const hit = await caches.match(req, { ignoreSearch: req.mode === 'navigate' });
     if (hit) return hit;
