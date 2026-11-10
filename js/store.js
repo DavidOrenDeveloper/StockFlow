@@ -49,6 +49,17 @@ export async function init() {
   S.items = items; S.docs = docs; S.log = logs.sort((a, b) => b.ts.localeCompare(a.ts));
   if (!S.cfg.seeded && !items.length) await seed();
   await loadImages(); reindex();
+  await applyUnitFix();
+}
+// One-time: cables/wires/conduits etc. were all 'unit'; set them to meters (only where the user did not change the unit).
+async function applyUnitFix() {
+  if (S.cfg.unitFix140) return;
+  try {
+    const fix = await (await fetch('data/unit_fix.json', { cache: 'no-cache' })).json(), now = new Date().toISOString(), ch = [];
+    for (const [id, [from, to]] of Object.entries(fix)) { const it = S.byId.get(id); if (it && it.unit === from && S.units.some(u => u.id === to)) { it.unit = to; it.updatedAt = now; ch.push(it); } }
+    if (ch.length) { await db.putMany('items', ch); await log('units', `updated ${ch.length}`); }
+    S.cfg.unitFix140 = true; await db.kvSet('cfg', S.cfg);
+  } catch (e) { /* offline: retry next start */ }
 }
 async function seed() {
   const seed = await (await fetch('data/seed.json', { cache: 'no-cache' })).json();
@@ -129,6 +140,36 @@ export async function importDocEnvelope(env, { onConflict } = {}) {
   await saveDoc(d); await log('import', `${d.type} ${d.worker} ${d.date}`, d.id); return d;
 }
 export const docEnvelope = d => ({ app: APP_ID, kind: 'doc', schema: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), exportedBy: S.cfg.worker || d.worker || '', doc: d, snap: d.snap });
+
+// ---------- catalog only: send to others / restore factory default ----------
+export async function exportCatalogBlob() {
+  const images = []; for (const r of await db.getAll('images')) images.push({ id: r.id, data: await blobToDataURL(r.blob) });
+  const kv = { cats: S.cats, units: S.units, sites: S.sites, groups: S.groups };
+  return new Blob([JSON.stringify({ app: APP_ID, kind: 'catalog', appVersion: APP_VERSION, createdAt: new Date().toISOString(), kv, items: S.items, images })], { type: 'application/json' });
+}
+async function replaceCatalog({ items, images, cats, units, groups, sites }) {
+  await db.clear('items'); await db.clear('images'); await db.putMany('items', items);
+  for (const im of images) await db.put('images', { id: im.id, blob: im.blob });
+  const uni = (cur, base) => [...base, ...cur.filter(x => !base.some(b => b.id === x.id))];
+  await db.kvSet('cats', uni(S.cats, cats)); await db.kvSet('units', uni(S.units, units)); await db.kvSet('groups', uni(S.groups, groups));
+  await db.kvSet('sites', [...S.sites, ...sites.filter(x => !S.sites.some(c => c.id === x.id))]);
+  S.cfg.unitFix140 = true; await db.kvSet('cfg', S.cfg);
+  await init(); emit();
+}
+export async function importCatalog(b) {
+  if (!b || b.app !== APP_ID || b.kind !== 'catalog') throw new Error('not-catalog');
+  const images = []; for (const im of b.images || []) images.push({ id: im.id, blob: await dataURLToBlob(im.data) });
+  await replaceCatalog({ items: b.items, images, cats: b.kv.cats || [], units: b.kv.units || [], groups: b.kv.groups || [], sites: b.kv.sites || [] });
+  await log('catalog', `imported (${b.items.length})`);
+}
+export async function restoreDefaultCatalog() {
+  const seed = await (await fetch('data/seed.json', { cache: 'no-cache' })).json(), now = new Date().toISOString(), images = [];
+  const items = seed.items.map(r => { const { img, ...it } = r; return { ...it, imgId: img ? r.id : null, createdAt: now, updatedAt: now, _img: img }; });
+  for (let i = 0; i < items.length; i += 24) await Promise.all(items.slice(i, i + 24).map(async it => { if (!it._img) return; try { images.push({ id: it.id, blob: await (await fetch(it._img)).blob() }); } catch (e) { it.imgId = null; } }));
+  items.forEach(it => { delete it._img; });
+  await replaceCatalog({ items, images, cats: seed.categories, units: seed.units, groups: seed.synonyms, sites: seed.sites });
+  await log('catalog', 'default restored');
+}
 
 // ---------- full backup ----------
 export async function backupAll() {

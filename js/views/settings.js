@@ -1,4 +1,4 @@
-import { S, nm, setCfg, saveList, backupAll, restoreAll, log } from '../store.js';
+import { S, nm, setCfg, saveList, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
 import { t, setLang } from '../i18n.js';
 import { esc, fmtDateTime, download, shareOrDownload, stamp, readFileText, toast, uid, safeName } from '../util.js';
 import { ic } from '../icons.js';
@@ -24,11 +24,13 @@ export function render(root, { rerender }) {
       ${sw('synOn', t('use_synonyms'), c.synOn, t('use_synonyms_hint'))}${sw('fuzzy', t('use_fuzzy'), c.fuzzy, t('use_fuzzy_hint'))}
       ${worker ? '' : `<div class="btnrow wrap"><button class="btn" id="syn">${ic('list', 18)} ${esc(t('manage_synonyms'))}</button></div>`}</section>
     ${worker ? '' : `<section class="card sec"><h2>${ic('sliders', 20)} ${esc(t('lists'))}</h2><div class="btnrow wrap">
-      <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button><button class="btn" id="clrEm">${c.lang === 'he' ? 'איפוס כל המינימום (חרום)' : 'Reset all minimums'}</button></div></section>`}
+      <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button><button class="btn" id="clrEm">${c.lang === 'he' ? 'איפוס כל המינימום' : 'Reset all minimums'}</button></div></section>`}
     <section class="card sec"><h2>${ic('download', 20)} ${esc(t('data'))}</h2>
       <p class="hint">${esc(t('last_backup'))}: <b>${c.lastBackup ? esc(fmtDateTime(c.lastBackup, c.lang)) : esc(t('never'))}</b></p>
       <div class="btnrow wrap"><button class="btn primary" id="bk">${ic('download', 18)} ${esc(t('backup_full'))}</button><button class="btn" id="bks">${ic('share', 18)} ${esc(t('backup_share'))}</button>${worker ? '' : `<button class="btn" id="rs">${ic('upload', 18)} ${esc(t('restore'))}</button>`}</div>
       <input type="file" id="rsf" accept=".json,application/json" hidden><input type="file" id="impf" accept=".json,application/json" multiple hidden>
+      <div class="btnrow wrap"><button class="btn" id="catSend">${S.cfg.lang === 'he' ? 'שלח קטלוג (קובץ)' : 'Send catalog (file)'}</button><button class="btn" id="catGet">${S.cfg.lang === 'he' ? 'קבל קטלוג מקובץ' : 'Load catalog from file'}</button><button class="btn danger" id="catReset">${S.cfg.lang === 'he' ? 'שחזור קטלוג לברירת מחדל' : 'Restore default catalog'}</button></div>
+      <p class="hint">${S.cfg.lang === 'he' ? 'הקטלוג הוא רשימת הפריטים בלבד. ספירות והזמנות לא נשלחות ולא נמחקות. שחזור לברירת מחדל מחזיר את הקטלוג המקורי של האפליקציה.' : 'The catalog is the item list only. Counts and orders are never sent or deleted. Restore default returns the app\'s original catalog.'}</p>
       <p class="hint">${esc(t('backup_hint'))}</p>
       <div class="btnrow wrap"><button class="btn" id="expcat">${ic('table', 18)} ${esc(t('export_catalog'))}</button>${worker ? '' : `<button class="btn" id="imp">${ic('upload', 18)} ${esc(t('import_files'))}</button>`}<button class="btn" id="hist">${ic('history', 18)} ${esc(t('history'))}</button></div></section>
     <section class="card sec"><h2>${ic('refresh', 20)} ${esc(t('app'))}</h2>
@@ -37,7 +39,7 @@ export function render(root, { rerender }) {
       <p class="hint">${esc(t('update_safe'))}</p></section></div>`;
   const $ = s => root.querySelector(s);
   $('#lang').onclick = async e => { const b = e.target.closest('[data-l]'); if (b) { await setLang(b.dataset.l); } };
-  root.querySelectorAll('[data-sw]').forEach(i => i.onchange = async () => { await setCfg({ [i.dataset.sw]: i.checked }); if (i.dataset.sw === 'workerMode') { const b = document.getElementById('skuBtn'); if (b) b.style.display = i.checked ? 'none' : ''; rerender(); } });
+  root.querySelectorAll('[data-sw]').forEach(i => i.onchange = async () => { await setCfg({ [i.dataset.sw]: i.checked }); if (i.dataset.sw === 'workerMode') rerender(); });
   root.querySelector('[data-sel="theme"]').onchange = async e => { await setCfg({ theme: e.target.value }); document.documentElement.dataset.theme = e.target.value; };
   root.querySelector('[data-in="worker"]').onchange = e => setCfg({ worker: e.target.value.trim() });
   const syn = $('#syn'); if (syn) syn.onclick = synonymsManager;
@@ -46,7 +48,7 @@ export function render(root, { rerender }) {
   const em = $('#clrEm'); if (em) em.onclick = async () => {
     const he = S.cfg.lang === 'he', n = S.items.filter(i => i.emergency != null).length;
     if (!n) return toast(he ? 'אין ערכי מינימום להסרה' : 'No minimums set');
-    if (!(await confirmDlg(he ? `לאפס את המינימום (חרום) של ${n} פריטים? אפשר להזין אותו מחדש בכל פריט בנפרד.` : `Reset the minimum of ${n} items? You can set it again per item.`, { danger: true, ok: he ? 'אפס' : 'Reset' }))) return;
+    if (!(await confirmDlg(he ? `לאפס את המינימום של ${n} פריטים? אפשר להזין אותו מחדש בכל פריט בנפרד.` : `Reset the minimum of ${n} items? You can set it again per item.`, { danger: true, ok: he ? 'אפס' : 'Reset' }))) return;
     const now = new Date().toISOString(); S.items.forEach(i => { if (i.emergency != null) { i.emergency = null; i.updatedAt = now; } });
     const { putMany } = await import('../db.js'); await putMany('items', S.items); await log('item~', 'reset minimums'); toast(he ? 'המינימום אופס' : 'Minimums reset');
   };
@@ -61,6 +63,10 @@ export function render(root, { rerender }) {
     m.$$('[data-a]').forEach(bt => bt.onclick = async () => { const a = bt.dataset.a; if (a === 'x') return m.close(); if (a === 'replace' && !(await confirmDlg(t('restore_replace_confirm'), { danger: true, ok: t('restore_replace') }))) return; m.close(); try { await restoreAll(b, a); toast(t('restored')); rerender(); } catch (er) { alertDlg(t('bad_file')); } });
   }; }
   const imp = $('#imp'); if (imp) { imp.onclick = () => $('#impf').click(); $('#impf').onchange = e => { importFiles([...e.target.files]); e.target.value = ''; }; }
+  { const he = S.cfg.lang === 'he';
+    $('#catSend').onclick = async () => { await shareOrDownload(await exportCatalogBlob(), `catalog_${stamp()}.json`, he ? 'קטלוג' : 'Catalog'); await log('catalog', 'share'); };
+    $('#catGet').onclick = () => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json'; inp.onchange = async () => { const f = inp.files[0]; if (!f) return; let b; try { b = JSON.parse(await readFileText(f)); if (b.kind !== 'catalog') throw 0; } catch { return alertDlg(he ? 'זה לא קובץ קטלוג' : 'Not a catalog file'); } if (!(await confirmDlg(he ? `לקבל קטלוג עם ${b.items.length} פריטים? הקטלוג הנוכחי יוחלף. הספירות וההזמנות שלך לא ייפגעו.` : `Load a catalog of ${b.items.length} items? The current catalog is replaced. Your counts and orders are kept.`, { ok: he ? 'קבל' : 'Load' }))) return; await importCatalog(b); toast(he ? 'הקטלוג עודכן' : 'Catalog updated'); rerender(); }; inp.click(); };
+    $('#catReset').onclick = async () => { if (!(await confirmDlg(he ? 'לשחזר את הקטלוג לברירת המחדל המקורית? שינויים בקטלוג (שמות, מק"טים, פריטים שנוספו, יחידות) יימחקו. ספירות והזמנות לא ייפגעו.' : 'Restore the original catalog? Catalog changes (names, SKUs, added items, units) are lost. Counts and orders are kept.', { danger: true, ok: he ? 'שחזר' : 'Restore' }))) return; await restoreDefaultCatalog(); toast(he ? 'הקטלוג שוחזר' : 'Catalog restored'); rerender(); }; }
   $('#expcat').onclick = () => exportDialog({ kind: 'catalog', items: S.items, name: 'catalog' });
   $('#hist').onclick = historyView;
   $('#upd').onclick = async () => {

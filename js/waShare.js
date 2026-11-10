@@ -34,7 +34,7 @@ export async function docImages(d, o = {}) {
       const tx = rtl ? X(140, 470) + 470 : X(140, 470);
       g.fillText(fit(g, nm({ he: l.he, en: l.en, tr: l.tr }), 460), tx, y + 38);
       g.font = '22px Arial'; g.fillStyle = '#64748b'; const sec = S.cfg.lang === 'he' ? (l.en || l.tr) : l.he; g.fillText(fit(g, [sec, l.unit].filter(Boolean).join(' · '), 460), tx, y + 76);
-      g.font = 'bold 28px monospace'; g.fillStyle = '#16202e'; g.textAlign = rtl ? 'right' : 'left'; g.fillText(fit(g, l.sku || '—', 200), rtl ? X(620, 200) + 200 : X(620, 200), y + ROW / 2);
+      g.font = 'bold 28px monospace'; g.fillStyle = '#16202e'; g.textAlign = rtl ? 'right' : 'left'; if (l.sku) { g.font = '20px Arial'; g.fillStyle = '#64748b'; g.fillText(t('sku'), rtl ? X(620, 200) + 200 : X(620, 200), y + ROW / 2 - 24); g.font = 'bold 28px monospace'; g.fillStyle = '#16202e'; } g.fillText(fit(g, l.sku || '—', 200), rtl ? X(620, 200) + 200 : X(620, 200), y + ROW / 2 + (l.sku ? 10 : 0));
       g.textAlign = 'center'; g.fillStyle = '#1f5fbf'; g.font = 'bold 44px Arial'; g.fillText(l.qty == null ? '—' : fmtQty(l.qty), X(830, 140) + 70, y + ROW / 2);
     });
     g.fillStyle = '#8a97ad'; g.font = '20px Arial'; g.textAlign = 'center'; g.fillText(`${fmtDate(d.date, 'en')} · ${nm(siteOf(d.site), 'he')}`, W / 2, H - 22);
@@ -50,6 +50,6 @@ export async function shareImages(d, o) {
 }
 export function waText(d, o = {}) {
   const lines = docLines(d, { onlyQty: d.type === 'order', onlyCounted: o.onlyCounted });
-  return `*${docTitle(d)}*${d.worker ? '\n' + d.worker : ''}\n\n` + lines.map(l => `• ${nm({ he: l.he, en: l.en, tr: l.tr })}${l.sku ? ' [' + l.sku + ']' : ''} — *${l.qty == null ? '—' : fmtQty(l.qty)}* ${l.unit}`).join('\n');
+  return `*${docTitle(d)}*${d.worker ? '\n' + d.worker : ''}\n\n` + lines.map(l => `• ${nm({ he: l.he, en: l.en, tr: l.tr })}${l.sku ? ' | ' + t('sku') + ' ' + l.sku : ''} — *${l.qty == null ? '—' : fmtQty(l.qty)}* ${l.unit}`).join('\n');
 }
 export const openWhatsApp = text => window.open('https://wa.me/?text=' + encodeURIComponent(text.slice(0, 3800)), '_blank');

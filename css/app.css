@@ -49,3 +49,5 @@ main{padding:10px 12px 24px;max-width:1280px;margin:0 auto}.page.narrow{max-widt
 @media(min-width:900px){:root{--navh:0px}body{padding-bottom:0}header.top{padding-inline-start:104px}main{padding-inline-start:104px}.nav{inset-block:0;inset-inline:auto;inset-inline-start:0;width:92px;height:auto;flex-direction:column;justify-content:flex-start;padding-top:70px;border-top:0;border-inline-end:1px solid var(--line)}.nav a{flex:none;padding:14px 0}.selbar,.footbar{bottom:12px}#toast{bottom:24px}}
 @media(max-width:420px){.brand b{display:none}.row{grid-template-columns:48px 1fr auto}.row .thumb{width:48px;height:48px}.qty button{width:36px}.qty input{width:60px}}
 [hidden]{display:none!important}input[type=search]::-webkit-search-cancel-button{display:none}
+
+.sku{font-size:13px;margin-top:2px;white-space:nowrap}.sku .mono{font-weight:700;direction:ltr;unicode-bidi:isolate}.lowtag{display:inline-block;font-size:12px;color:#c0392b;background:#fdecea;border-radius:8px;padding:1px 8px;margin-top:3px}.row:not(.low) .lowtag{display:none}#cartBtn{display:inline-flex;align-items:center;gap:4px;margin-inline-start:6px;white-space:nowrap}

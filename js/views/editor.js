@@ -22,7 +22,7 @@ export function render(root, { id }) {
       <label class="fld"><span>${esc(t('status'))}</span><select data-m="status">${DOC_STATUS[doc.type].map(s => `<option value="${s}">${esc(t('st_' + s))}</option>`).join('')}</select></label>
       <label class="fld"><span>${esc(t('folder'))}</span><select data-m="folder"><option value="">${esc(t('no_folder'))}</option>${S.folders.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select></label>
       <label class="fld wide"><span>${esc(t('note'))}</span><input data-m="note"></label></div></details>
-    <div class="bar tight"><div class="searchbox">${ic('search', 18)}<input id="q" type="search" placeholder="${esc(t('search_ph'))}" autocomplete="off"><button class="icon-btn" id="qx" hidden>${ic('x', 16)}</button></div></div>
+    <div class="bar tight"><div class="searchbox">${ic('search', 18)}<input id="q" type="search" placeholder="${esc(t('search_ph'))}" autocomplete="off"><button class="icon-btn" id="qx" hidden>${ic('x', 16)}</button></div><button class="btn" id="cartBtn" title="${S.cfg.lang === 'he' ? 'סל: רק מה שנוסף עד עכשיו' : 'Basket: only what was added so far'}">${ic('cart', 20)} <b id="cartN">0</b></button></div>
     <div class="chips-row" id="fl"></div><div class="chips-row" id="cats"></div>
     <div id="list"></div>
     <div class="footbar"><div class="progress"><div class="pbar"><i id="pfill"></i></div><span id="ptxt"></span><small id="saved"></small></div>
@@ -47,16 +47,17 @@ export function render(root, { id }) {
     toast(S.cfg.lang === 'he' ? 'הפעולה האחרונה בוטלה' : 'Last action undone');
   }
   const hidN = () => Object.keys(doc.hidden || {}).filter(id => S.byId.has(id)).length;
-  const hidPill = () => (hidN() ? [['hidden', `${S.cfg.lang === 'he' ? 'מוסתרים' : 'Hidden'} (${hidN()})`]] : []);
+  const hidPill = () => [['hidden', `${S.cfg.lang === 'he' ? 'מוסתרים' : 'Hidden'} (${hidN()})`]];
   const hideBtn = it => `<button class="btn sm" style="padding:1px 8px;font-size:11px;margin-top:3px" ${doc.hidden?.[it.id] ? 'data-unhide' : 'data-hide'}>${S.cfg.lang === 'he' ? (doc.hidden?.[it.id] ? 'החזר למסמך' : 'הסתר ממסמך זה') : (doc.hidden?.[it.id] ? 'Restore' : 'Hide from this doc')}</button>`;
   const stats = () => { const n = Object.keys(doc.lines).filter(id => !doc.hidden?.[id]).length, tot = S.items.length - hidN(); return { n, tot, ord: Object.values(doc.lines).filter(v => v > 0).length }; };
   function progress() {
     const s = stats(), pct = isCount ? s.n / (s.tot || 1) : Math.min(1, s.ord / 12);
+    { const cn = $('#cartN'); if (cn) cn.textContent = isCount ? s.n : s.ord; }
     $('#pfill').style.width = (isCount ? pct * 100 : (s.ord ? 100 : 0)) + '%';
     $('#ptxt').textContent = isCount ? t('counted_of', { n: s.n, t: s.tot }) : t('ordered_lines', { n: s.ord });
   }
   function filters() {
-    const s = stats();
+    const s = stats(); { const cb = $('#cartBtn'); if (cb) cb.classList.toggle('primary', flt === 'added'); }
     $('#fl').innerHTML = isCount
       ? [['all', t('all')], ['uncounted', `${t('show_uncounted')} (${s.tot - s.n})`], ['counted', t('counted')], ['short', t('below_emergency')], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('')
       : [['all', t('all')], ['ordered', `${t('ordered')} (${s.ord})`], ['short', t('below_emergency')], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('');
@@ -65,6 +66,7 @@ export function render(root, { id }) {
   const passes = it => {
     if (cat && it.cat !== cat) return false; const v = doc.lines[it.id];
     if (flt === 'hidden') return !!doc.hidden?.[it.id]; if (doc.hidden?.[it.id]) return false;
+    if (flt === 'added') return isCount ? v != null : v > 0;
     if (flt === 'img' && !imgOf(it)) return false;
     if (flt === 'uncounted') return v == null; if (flt === 'counted') return v != null; if (flt === 'ordered') return v > 0;
     if (flt === 'short') return it.emergency != null && (isCount ? (v != null && v < it.emergency) : (prev?.lines[it.id] ?? 0) < it.emergency);
@@ -75,9 +77,9 @@ export function render(root, { id }) {
     const low = it.emergency != null && ((isCount && v != null && v < it.emergency));
     return `<div class="row ${v == null ? '' : v === 0 ? 'zero' : 'has'} ${low ? 'low' : ''}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 24)}</button>
-      <div class="info"><div class="n1">${esc(nm(it))}</div><div class="n2">${it.sku ? `<span class="mono">${esc(it.sku)}</span> · ` : ''}${esc(nm(unitOf(it.unit)))}${it.emergency != null ? ` · ${esc(t('emergency'))} ${fmtQty(it.emergency)}` : ''}${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>
+      <div class="info"><div class="n1">${esc(nm(it))}</div>${it.sku ? `<div class="sku">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>${isCount && it.emergency != null ? `<div class="lowtag">${S.cfg.lang === 'he' ? 'מתחת למינימום' : 'Below minimum'} (${fmtQty(it.emergency)})</div>` : ''}
         ${sug ? `<button class="sug" data-sug="${sug}">${esc(t('fill_short', { n: fmtQty(sug) }))}</button>` : ''}${hideBtn(it)}</div>
-      <div class="qty"><button data-dec aria-label="-">${ic('minus', 18)}</button><input inputmode="decimal" autocomplete="off" value="${v == null ? '' : fmtQty(v)}" placeholder="${isCount ? '—' : '0'}" aria-label="${esc(nm(it))}"><button data-inc aria-label="+">${ic('plus', 18)}</button>${isCount && v != null ? `<button class="clr" data-clr title="${esc(t('uncount'))}">${ic('x', 14)}</button>` : ''}</div></div>`;
+      <div class="qty"><button data-dec aria-label="-">${ic('minus', 18)}</button><input inputmode="decimal" autocomplete="off" value="${v == null ? '' : fmtQty(v)}" placeholder="${isCount ? '—' : '0'}" aria-label="${esc(nm(it))}"><button data-inc aria-label="+">${ic('plus', 18)}</button>${isCount ? `<button class="clr" data-clr style="visibility:${v != null ? 'visible' : 'hidden'}" title="${esc(t('uncount'))}">${ic('x', 14)}</button>` : ''}</div></div>`;
   }
   function draw() {
     let html = '';
@@ -97,7 +99,7 @@ export function render(root, { id }) {
     rowEl.classList.toggle('has', v != null && v !== 0); rowEl.classList.toggle('zero', v === 0);
     const it = S.byId.get(id); rowEl.classList.toggle('low', !!(isCount && it?.emergency != null && v != null && v < it.emergency));
     const inp = rowEl.querySelector('input'); if (document.activeElement !== inp) inp.value = v == null ? '' : fmtQty(v);
-    let clr = rowEl.querySelector('.clr'); if (isCount) { if (v != null && !clr) rowEl.querySelector('.qty').insertAdjacentHTML('beforeend', `<button class="clr" data-clr>${ic('x', 14)}</button>`); if (v == null && clr) clr.remove(); }
+    const clr = rowEl.querySelector('.clr'); if (clr) clr.style.visibility = v != null ? 'visible' : 'hidden';
     progress(); autosave(); const sv = $('#saved'); if (sv) sv.textContent = '…';
   }
   $('#list').addEventListener('input', e => { if (e.target.tagName !== 'INPUT') return; const row = e.target.closest('.row'); if (typed !== row.dataset.id) { push({ id: row.dataset.id, v: doc.lines[row.dataset.id] }); typed = row.dataset.id; } const raw = e.target.value.replace(',', '.'); setQty(row, raw.trim() === '' ? null : (num(raw) != null && num(raw) >= 0 ? num(raw) : doc.lines[row.dataset.id] ?? null)); });
@@ -120,6 +122,7 @@ export function render(root, { id }) {
   $('#q').oninput = debounce(e => { q = e.target.value; $('#qx').hidden = !q; draw(); }, 120);
   $('#qx').onclick = () => { $('#q').value = ''; q = ''; $('#qx').hidden = true; draw(); };
   $('#undoBtn').onclick = undoLast;
+  $('#cartBtn').onclick = () => { flt = flt === 'added' ? 'all' : 'added'; filters(); draw(); progress(); };
   $('#saveBtn').onclick = async () => { await persist(); toast(t('draft_saved')); };
   $('#exp').onclick = async () => { await persist(); exportDialog({ kind: 'doc', doc }); };
   $('#done').onclick = async () => {

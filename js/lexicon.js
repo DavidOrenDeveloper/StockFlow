@@ -28,7 +28,7 @@ export const WORDS = {
   'בוקסה': ['Socket wrench', 'BOKSA'], 'מטר': ['Tape measure', 'METER'], 'ג"ת': ['Light fixture', 'GAT'], 'מגולוון': ['galvanized', 'MEGALVAN'],
   'ראש': ['head', 'ROSH'], 'צינור': ['Pipe', 'TZINOR'], 'מרירון': ['Meriron', 'MERIRON'], 'זווית': ['Angle', 'ZAVIT'], 'רון': ['Ron', 'RON'],
   'ספרי': ['Speri', 'SPERI'], 'בלה': ['Bela', 'BELA'], 'סומסום': ['Sumsum', 'SUMSUM'], 'פלטא': ['Plata', 'PLATA'], 'פאקט': ['Paket', 'PAKET'],
-  'מ"מ': ['mm', 'MM'], 'חרום': ['Emergency', 'CHIRUM'],
+  'מ"מ': ['mm', 'MM'],
   // colours
   'אדום': ['Red', 'ADOM'], 'ירוק': ['Green', 'YAROK'], 'כחול': ['Blue', 'KACHOL'], 'לבן': ['White', 'LAVAN'], 'שחור': ['Black', 'SHACHOR'],
   'חום': ['Brown', 'CHUM'], 'צהוב': ['Yellow', 'TSAHOV'], 'כתום': ['Orange', 'KATOM'], 'עבה': ['thick', 'AVE'], 'שחור_': ['Black', 'SHACHOR']
