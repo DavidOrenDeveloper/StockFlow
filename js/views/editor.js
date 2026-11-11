@@ -1,7 +1,7 @@
 // Stock-count / order editor. Empty = not checked yet; 0 = checked, none. Auto-saves as draft after every change.
 import { S, nm, catOf, unitOf, imgOf, runSearch, saveDoc, setStatus, siteOf, DOC_STATUS, lastCount, orderFromCount, deleteDoc, log, newItem, addSite } from '../store.js';
 import { t } from '../i18n.js';
-import { esc, debounce, num, fmtQty, fmtDateTime, toast } from '../util.js';
+import { esc, debounce, num, fmtQty, fmtDateTime, toast, bidi } from '../util.js';
 import { ic } from '../icons.js';
 import { zoomImg, confirmDlg, menu, promptDlg } from '../modal.js';
 import { editItem } from './itemEditor.js';
@@ -29,9 +29,9 @@ export function render(root, { id }) {
       <label class="fld wide"><span>${esc(t('note'))}</span><input data-m="note"></label></div></details>
     <div class="chips-row" id="fl"></div><div class="chips-row" id="cats"></div>
     <div id="list"></div>
-    <div class="footbar slim"><button class="btn" id="saveBtn">${ic('check', 18)} <span>${he_ ? 'שמור וצא' : 'Save & exit'}</span></button>
+    <div class="footbar slim"><button class="btn primary" id="saveBtn">${ic('check', 18)} <span>${he_ ? 'שמור וצא' : 'Save & exit'}</span></button>
       <button class="btn" id="exp">${ic('download', 18)} <span>${esc(t('export'))}</span></button>
-      <button class="btn primary" id="moreBtn">${ic('more', 18)} <span>${he_ ? 'עוד' : 'More'}</span></button></div></div>`;
+      ${isCount ? `<button class="btn" id="mkOrder">${ic('cart', 18)} <span>${he_ ? 'צור הזמנה' : 'Make order'}</span></button>` : ''}</div></div>`;
   const $ = s => root.querySelector(s);
   // meta bindings
   $$('[data-m]').forEach(el => { el.value = doc[el.dataset.m] ?? ''; el.onchange = async () => { if (el.dataset.m === 'site' && el.value === '__new') { const n = await promptDlg(he_ ? 'שם האתר / המיקום' : 'Site / location name', ''); const id = n && await addSite(n); if (id) { el.insertAdjacentHTML('afterbegin', `<option value="${id}">${esc(n)}</option>`); el.value = id; } else { el.value = doc.site; return; } } doc[el.dataset.m] = el.value; if (el.dataset.m === 'status') await log('status', el.value, doc.id); await persist(); head(); }; });
@@ -80,7 +80,7 @@ export function render(root, { id }) {
     const low = it.emergency != null && ((isCount && v != null && v < it.emergency)), note = doc.notes?.[it.id] || '';
     return `<div class="row ${v == null ? '' : v === 0 ? 'zero' : 'has'} ${low ? 'low' : ''}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 24)}</button>
-      <div class="info"><div class="n1">${esc(nm(it))} <button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}">${ic('edit', 14)}</button></div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>${isCount && it.emergency != null ? `<div class="lowtag">${S.cfg.lang === 'he' ? 'מתחת למינימום' : 'Below minimum'} (${fmtQty(it.emergency)})</div>` : ''}
+      <div class="info"><div class="n1">${bidi(nm(it))} <button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}">${ic('edit', 14)}</button></div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>${isCount && it.emergency != null ? `<div class="lowtag">${S.cfg.lang === 'he' ? 'מתחת למינימום' : 'Below minimum'} (${fmtQty(it.emergency)})</div>` : ''}
         ${sug ? `<button class="sug" data-sug="${sug}">${esc(t('fill_short', { n: fmtQty(sug) }))}</button>` : ''}${hideBtn(it)} <button class="btn sm lnkb" data-note type="button">${note ? (he_ ? 'ערוך הערה' : 'Edit note') : (he_ ? '+ הערה' : '+ Note')}</button></div>
       <div class="qty"><button data-dec aria-label="-">${ic('minus', 18)}</button><input inputmode="decimal" autocomplete="off" value="${v == null ? '' : fmtQty(v)}" placeholder="${isCount ? '—' : '0'}" aria-label="${esc(nm(it))}"><button data-inc aria-label="+">${ic('plus', 18)}</button>${isCount ? `<button class="clr" data-clr style="visibility:${v != null ? 'visible' : 'hidden'}" title="${esc(t('uncount'))}">${ic('x', 14)}</button>` : ''}</div>${note ? noteRow(note) : ''}</div>`;
   }
@@ -135,16 +135,8 @@ export function render(root, { id }) {
   $('#cartBtn').onclick = () => { flt = flt === 'added' ? 'all' : 'added'; filters(); draw(); progress(); };
   $('#saveBtn').onclick = async () => { await persist(); toast(t('draft_saved')); location.hash = '#/' + (isCount ? 'counts' : 'orders'); };
   $('#exp').onclick = async () => { await persist(); exportDialog({ kind: 'doc', doc }); };
-  const finish = async () => {
-    const s = stats();
-    if (isCount) { if (s.tot - s.n > 0 && !(await confirmDlg(t('uncounted_warn', { n: s.tot - s.n })))) { flt = 'uncounted'; filters(); draw(); return; } await setStatus(doc, 'completed'); }
-    else await setStatus(doc, doc.status === 'draft' ? 'submitted' : 'completed');
-    $$('[data-m="status"]')[0].value = doc.status; head(); toast(t('saved')); exportDialog({ kind: 'doc', doc });
-  };
   const makeOrder = async () => { const o = orderFromCount(doc); if (!Object.keys(o.lines).length) { toast(t('no_shortage')); return; } await saveDoc(o); await log('doc+', 'order from count', o.id); location.hash = '#/doc/' + o.id; };
-  $('#moreBtn').onclick = e => menu(e.currentTarget, [
-    { label: isCount ? t('finish_count') : (doc.status === 'draft' ? t('mark_submitted') : (he_ ? 'סמן כהושלמה' : 'Mark completed')), icon: 'check', onClick: finish },
-    ...(isCount ? [{ label: t('order_from_count'), icon: 'cart', onClick: makeOrder }] : [])]);
+  if (isCount) $('#mkOrder').onclick = makeOrder;
   const vis = () => { if (document.hidden) persist(); }; document.addEventListener('visibilitychange', vis);
   const saveUi = debounce(() => { try { localStorage.setItem(uiKey, JSON.stringify({ q, cat, flt, y: Math.round(scrollY) })); } catch (e) { /* ignore */ } }, 300);
   let restoreY = 0;

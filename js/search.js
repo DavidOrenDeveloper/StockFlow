@@ -99,7 +99,7 @@ export function buildIndex(items, names) {
   });
 }
 // Built-in abbreviations that always mean the same thing (searching either form finds both): על הטיח = עה"ט, תחת הטיח = תה"ט, חצי אוטומט = ח"א = מאמ"ת = מא"ז ...
-const BUILTIN = [['עהט', 'על הטיח'], ['תהט', 'תחת הטיח'], ['חא', 'חצי אוטומט', 'חצי אוטומטי', 'מאמת', 'מאז', 'מפסק אוטומטי זעיר', 'מפסק זעיר'], ['מוגמ', 'מוגן מים']].map(g => g.map(norm));
+const BUILTIN = [['עהט', 'על הטיח'], ['תהט', 'תחת הטיח'], ['חא', 'חצי אוטומט', 'חצי אוטומטי', 'מאמת', 'מאז', 'מפסק אוטומטי זעיר', 'מפסק זעיר'], ['מוגמ', 'מוגן מים'], ['גת', 'גות', 'גוף תאורה'], ['פהפ', 'פס השוואת פוטנציאלים', 'פס השוואה'], ['יקא', 'יקע', 'hdpe']].map(g => g.map(norm));
 function phraseVariants(qn) {
   const out = [], pad = ` ${qn} `;
   for (const g of BUILTIN) for (const m of g) if (pad.includes(` ${m} `)) for (const o of g) if (o !== m) out.push(pad.replace(` ${m} `, ` ${o} `).trim());

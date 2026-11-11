@@ -38,3 +38,6 @@ export function toast(msg, ms = 2400) {
   let t = $('#toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
   t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
 }
+
+/** HTML-safe text where every Latin / number run (e.g. "CEE 3X16", "N-1A") is isolated, so it keeps its typed order inside Hebrew text */
+export const bidi = x => String(x ?? '').split(/([A-Za-z0-9](?:[A-Za-z0-9.,:;/\\\-*×+()%#_&'"]| (?=[A-Za-z0-9(]))*)/).map((p, i) => i % 2 ? `<bdi dir="ltr">${esc(p)}</bdi>` : esc(p)).join('');

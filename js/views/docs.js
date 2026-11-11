@@ -1,5 +1,5 @@
 // List of counts / orders / all files (with folders, worker grouping, import of worker JSON files)
-import { S, nm, siteOf, addSite, newDoc, saveDoc, deleteDoc, importDocEnvelope, DOC_STATUS, saveList, log } from '../store.js';
+import { S, nm, siteOf, addSite, newDoc, saveDoc, deleteDoc, importDocEnvelope, DOC_STATUS, saveList, log, setStatus } from '../store.js';
 import { t } from '../i18n.js';
 import { esc, fmtDate, fmtQty, readFileText, toast, uid } from '../util.js';
 import { ic } from '../icons.js';
@@ -50,7 +50,7 @@ export function render(root, { type = 'all' } = {}) {
       <h1 class="ptitle">${esc(type === 'count' ? t('counts') : type === 'order' ? t('orders') : t('files'))}</h1><span class="grow"></span>
       <button class="btn" id="imp">${ic('upload', 18)} <span>${esc(t('import_files'))}</span></button>
       ${type === 'all' ? `<button class="btn" id="fld">${ic('folder', 18)}</button>` : ''}
-      ${type === 'all' ? `<button class="btn primary" id="nc">${ic('clipboard', 18)} <span>${esc(t('new_count'))}</span></button><button class="btn primary" id="no">${ic('cart', 18)} <span>${esc(t('new_order'))}</span></button>`
+      ${type === 'all' ? `<button class="btn primary" id="nw">${ic('plus', 18)} <span>${S.cfg.lang === 'he' ? 'חדש' : 'New'}</span></button>`
         : `<button class="btn primary" id="new">${ic('plus', 18)} <span>${esc(type === 'count' ? t('new_count') : t('new_order'))}</span></button>`}
       <input type="file" id="file" accept=".json,application/json" multiple hidden></div>
     <div class="filters" id="filters"></div><div id="list"></div></div>`;
@@ -67,7 +67,7 @@ export function render(root, { type = 'all' } = {}) {
   }
   const keyOf = d => f.group === 'folder' ? (S.folders.find(x => x.id === d.folder)?.name || t('no_folder')) : f.group === 'worker' ? (d.worker || t('no_worker')) : f.group === 'site' ? nm(siteOf(d.site), 'he') : f.group === 'status' ? t('st_' + d.status) : f.group === 'month' ? d.date.slice(0, 7) : '';
   function row(d) {
-    return `<div class="card doc" data-id="${d.id}"><span class="dicon ${d.type}">${ic(d.type === 'count' ? 'clipboard' : 'cart', 22)}</span>
+    return `<div class="card doc" data-id="${d.id}"><span class="dicon ${d.type}${d.type === 'order' && d.status === 'submitted' ? ' sent' : ''}">${ic(d.type === 'count' ? 'clipboard' : 'cart', 22)}</span>
       <div class="info"><div class="n1">${esc(nm(siteOf(d.site), 'he') || '—')} · ${esc(fmtDate(d.date, S.cfg.lang))}</div>
       <div class="n2">${esc(d.worker || t('no_worker'))}${d.note ? ' · ' + esc(d.note) : ''}</div>
       <div class="tags"><span class="st st-${d.status}">${esc(t('st_' + d.status))}</span><span class="tag">${esc(d.type === 'count' ? t('count') : t('order'))}</span><span class="tag">${esc(prog(d))}</span>${d.imported ? `<span class="tag b-syn">${esc(t('imported'))}</span>` : ''}</div></div>
@@ -83,7 +83,7 @@ export function render(root, { type = 'all' } = {}) {
   $('#filters').addEventListener('change', e => { const k = e.target.dataset.f; if (k && k !== 'q') { f[k] = e.target.value; draw(); } });
   const go = d => navigate('#/doc/' + d.id);
   const mk = tp => () => createDocDialog(tp, go);
-  if (type === 'all') { $('#nc').onclick = mk('count'); $('#no').onclick = mk('order'); $('#fld').onclick = folderManager; } else $('#new').onclick = mk(type);
+  if (type === 'all') { $('#nw').onclick = e => menu(e.currentTarget, [{ label: t('new_count'), icon: 'clipboard', onClick: mk('count') }, { label: t('new_order'), icon: 'cart', onClick: mk('order') }]); $('#fld').onclick = folderManager; } else $('#new').onclick = mk(type);
   $('#imp').onclick = () => $('#file').click();
   $('#file').onchange = e => { importFiles([...e.target.files], () => { drawFilters(); draw(); }); e.target.value = ''; };
   let lp = null, lpFired = false;
@@ -95,6 +95,7 @@ export function render(root, { type = 'all' } = {}) {
     const mo = e.target.closest('[data-more]');
     if (mo) { const d = S.docs.find(x => x.id === mo.dataset.more); menu(mo, [
       { label: t('open'), icon: 'eye', onClick: () => go(d) }, { label: t('export'), icon: 'download', onClick: () => exportDialog({ kind: 'doc', doc: d }) },
+      ...(d.type === 'order' ? [{ label: d.status === 'submitted' ? (S.cfg.lang === 'he' ? 'בטל סימון "נשלחה"' : 'Unmark as sent') : (S.cfg.lang === 'he' ? 'סמן כהוגשה / נשלחה למזמין' : 'Mark as submitted / sent'), icon: 'check', onClick: async () => { await setStatus(d, d.status === 'submitted' ? 'draft' : 'submitted'); draw(); } }] : []),
       { label: t('move_folder'), icon: 'folder', onClick: () => moveFolder(d) }, { label: t('duplicate'), icon: 'copy', onClick: async () => { const c = structuredClone(d); c.id = uid('d'); c.status = 'draft'; c.imported = null; c.exportedAt = null; await saveDoc(c); draw(); toast(t('saved')); } },
       { label: t('delete'), icon: 'trash', danger: true, onClick: async () => { if (await confirmDlg(t('confirm_delete_doc'), { danger: true, ok: t('delete') })) { await deleteDoc(d.id); drawFilters(); draw(); } } }]); return; }
     const c = e.target.closest('.card.doc'); if (c) location.hash = '#/doc/' + c.dataset.id;

@@ -64,8 +64,8 @@ export function catalogXlsx(items, o = {}) {
   return buildXlsx([{ name: t('catalog'), rtl: dir() === 'rtl', titleRow: true, headerRow: 3, widths: cols.map(c => c.w), rows }]);
 }
 // ---------- PDF via the browser's print engine (full Hebrew/RTL support, works offline) ----------
-export function printHtml(title, metaPairs, head, body, { rtl = dir() === 'rtl', landscape = false } = {}) {
-  const html = `<!doctype html><html lang="${rtl ? 'he' : 'en'}" dir="${rtl ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+export function printHtml(title, metaPairs, head, body, { rtl = dir() === 'rtl', landscape = false, fileName = '' } = {}) {
+  const html = `<!doctype html><html lang="${rtl ? 'he' : 'en'}" dir="${rtl ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${esc(fileName || title)}</title><style>
   @page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:12mm}*{box-sizing:border-box}body{font-family:"Segoe UI",Arial,sans-serif;color:#17202f;font-size:11.5px;margin:0}
   h1{font-size:19px;margin:0 0 4px;color:#1f3a5f}.meta{display:flex;flex-wrap:wrap;gap:4px 22px;margin:6px 0 12px;font-size:11.5px}.meta b{color:#52607a;font-weight:600}
   table{width:100%;border-collapse:collapse}th{background:#1f5fbf;color:#fff;padding:6px 6px;font-weight:600;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -74,7 +74,7 @@ export function printHtml(title, metaPairs, head, body, { rtl = dir() === 'rtl',
   </style></head><body><h1>${esc(title)}</h1><div class="meta">${metaPairs.map(m => `<span><b>${esc(m[0])}:</b> ${esc(m[1])}</span>`).join('')}</div>
   <table><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table><div class="foot">${esc(t('generated'))} ${esc(fmtDateTime(new Date().toISOString(), 'en'))}</div></body></html>`;
   const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;inset-inline-end:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
-  const oldTitle = document.title; document.title = title;   // the phone's "save as PDF" suggests this as the file name (editable there)
+  const oldTitle = document.title; document.title = fileName || title;   // the phone's "save as PDF" suggests this as the file name (editable there)
   document.body.appendChild(f); f.srcdoc = html;
   f.onload = () => {
     const w = f.contentWindow, imgs = [...w.document.images];
@@ -86,13 +86,13 @@ export async function docPdf(d, o = {}) {
   if (o.img) lines = await inlineImgs(lines);
   const head = ['#', ...(o.img ? [t('image')] : []), ...cols.map(c => c.h)];
   const body = lines.map((l, i) => `<tr><td class="c">${i + 1}</td>${o.img ? `<td>${l.img ? `<img src="${l.img}">` : ''}</td>` : ''}${cols.map((c, ci) => { const v = c.f(l); return `<td class="${c.s === 6 ? 'q' : c.s === 3 ? 'c' : ''}">${esc(typeof v === 'number' ? fmtQty(v) : v)}</td>`; }).join('')}</tr>`).join('');
-  printHtml(docTitle(d), docMeta(d), head, body);
+  printHtml(docTitle(d), docMeta(d), head, body, { fileName: o.fileName });
 }
 export async function catalogPdf(items, o = {}) {
   const urls = o.img ? await inlineImgs(items.map(i => ({ img: imgOf(i) }))) : [];
   const head = ['#', ...(o.img ? [t('image')] : []), t('sku'), t('name_he'), t('name_en'), t('name_tr'), t('category'), t('unit'), ...(o.qtyCol ? [t('qty_order')] : [])];
   const body = items.map((i, n) => `<tr><td class="c">${n + 1}</td>${o.img ? `<td>${urls[n]?.img ? `<img src="${urls[n].img}">` : ''}</td>` : ''}<td>${esc(i.sku)}</td><td>${esc(i.he)}</td><td>${esc(i.en)}</td><td>${esc(i.tr)}</td><td>${esc(nm(catOf(i.cat), 'he'))}</td><td class="c">${esc(nm(unitOf(i.unit), 'he'))}</td>${o.qtyCol ? '<td class="q"></td>' : ''}</tr>`).join('');
-  printHtml(t('catalog'), [[t('items'), String(items.length)]], head, body);
+  printHtml(t('catalog'), [[t('items'), String(items.length)]], head, body, { fileName: o.fileName });
 }
 // ---------- JSON / clipboard ----------
 export const docJsonBlob = d => new Blob([JSON.stringify(docEnvelope(d), null, 1)], { type: 'application/json' });

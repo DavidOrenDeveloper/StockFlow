@@ -78,3 +78,14 @@ main{padding:10px 12px 24px;max-width:1280px;margin:0 auto}.page.narrow{max-widt
 .rnote{grid-column:1/-1}
 .rnote input{width:100%;height:38px;border:1px dashed var(--line);border-radius:10px;padding:0 10px;background:var(--bg)}
 .sku{white-space:normal}.sku .mono{overflow-wrap:anywhere}.sku.long .mono{display:block}
+
+/* ---- export dialog rows, bottom bar box, sent-order icon ---- */
+.exl{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.exr{display:flex;align-items:center;gap:12px;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);text-align:start;min-height:52px}
+.exr:active{background:var(--primary-soft)}
+.exr2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.exr2 .exr{padding:9px 10px}
+.exc{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;color:#fff;flex:none}
+.ext{display:flex;flex-direction:column;min-width:0;line-height:1.3}.ext b{font-size:14px;font-weight:600}.ext small{color:var(--muted);font-size:11.5px;font-weight:400}
+.footbar.slim{background:color-mix(in srgb,var(--primary) 8%,var(--card));border:1px solid color-mix(in srgb,var(--primary) 24%,var(--line));grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:1fr}
+.footbar.slim .btn:not(.primary){background:var(--card)}
+.dicon.sent{background:linear-gradient(135deg,#22c55e,#15803d)}

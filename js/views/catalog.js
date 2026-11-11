@@ -1,6 +1,6 @@
 import { S, nm, catOf, unitOf, imgOf, runSearch, newItem, bulkItems, deleteItem, saveList } from '../store.js';
 import { t } from '../i18n.js';
-import { esc, debounce, toast } from '../util.js';
+import { esc, debounce, toast, bidi } from '../util.js';
 import { ic } from '../icons.js';
 import { zoomImg, confirmDlg, menu } from '../modal.js';
 import { editItem } from './itemEditor.js';
@@ -23,7 +23,7 @@ export function render(root) {
     const u = imgOf(it), on = sel.has(it.id);
     return `<div class="card item ${on ? 'sel' : ''}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}" aria-label="${esc(t('zoom'))}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 26)}${u ? `<i>${ic('zoom', 14)}</i>` : ''}</button>
-      <div class="info"><div class="n1">${esc(nm(it))}</div>${names2(it).map(n => `<div class="n2">${esc(n)}</div>`).join('')}
+      <div class="info"><div class="n1">${bidi(nm(it))}</div>${names2(it).map(n => `<div class="n2">${esc(n)}</div>`).join('')}
         <div class="tags">${it.sku ? `<span class="tag mono">${esc(it.sku)}</span>` : `<span class="tag ghost">${esc(t('no_sku'))}</span>`}<span class="tag">${esc(nm(unitOf(it.unit)))}</span>${it.emergency != null ? `<span class="tag warn">${esc(t('emergency'))} ${it.emergency}</span>` : ''}${badge}</div></div>
       ${selMode ? `<span class="checkmark">${on ? ic('check', 18) : ''}</span>` : (worker() ? '' : `<button class="icon-btn" data-edit="${it.id}" aria-label="${esc(t('edit'))}">${ic('edit', 18)}</button>`)}</div>`;
   }

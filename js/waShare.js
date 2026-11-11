@@ -10,9 +10,9 @@ const loadImg = async src => { if (!src) return null; try { const u = await toDa
 // shrink to fit one line, then (for long codes) wrap onto two lines — never cut with "…"
 const fitFont = (g, s, max, sizes, face, bold = 'bold') => { for (const z of sizes) { g.font = `${bold} ${z}px ${face}`; if (g.measureText(s).width <= max) return z; } return 0; };
 function drawCode(g, s, x, y, max) {
-  const z = fitFont(g, s, max, [28, 24, 20, 17], 'monospace');
+  const z = fitFont(g, s, max, [28, 24, 21, 18, 16, 14, 12], 'monospace');
   if (z) { g.fillText(s, x, y); return; }
-  g.font = 'bold 17px monospace'; const h = Math.ceil(s.length / 2); g.fillText(s.slice(0, h), x, y - 11); g.fillText(s.slice(h), x, y + 11);
+  g.font = 'bold 14px monospace'; const h = Math.ceil(s.length / 2); g.fillText(s.slice(0, h), x, y - 11); g.fillText(s.slice(h), x, y + 11);
 }
 const fit = (ctx, s, max) => { s = String(s ?? ''); if (ctx.measureText(s).width <= max) return s; while (s.length > 1 && ctx.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
 
