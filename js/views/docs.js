@@ -1,5 +1,5 @@
 // List of counts / orders / all files (with folders, worker grouping, import of worker JSON files)
-import { S, nm, siteOf, newDoc, saveDoc, deleteDoc, importDocEnvelope, DOC_STATUS, saveList, log, inList } from '../store.js';
+import { S, nm, siteOf, addSite, newDoc, saveDoc, deleteDoc, importDocEnvelope, DOC_STATUS, saveList, log } from '../store.js';
 import { t } from '../i18n.js';
 import { esc, fmtDate, fmtQty, readFileText, toast, uid } from '../util.js';
 import { ic } from '../icons.js';
@@ -8,21 +8,23 @@ import { exportDialog } from './exportDialog.js';
 
 const prog = d => {
   const n = Object.keys(d.lines).length;
-  if (d.type === 'count') return `${n}/${S.items.filter(i => inList(d, i)).length}`;
+  if (d.type === 'count') return `${n}/${S.items.length}`;
   const tot = Object.values(d.lines).reduce((a, b) => a + (b > 0 ? 1 : 0), 0); return t('n_lines', { n: tot });
 };
 export function createDocDialog(type, onCreate) {
   const m = openModal({
     title: type === 'count' ? t('new_count') : t('new_order'),
-    content: `<label class="fld"><span>${esc(t('site'))}</span><select data-k="site">${S.sites.map(s => `<option value="${s.id}" ${s.id === S.cfg.lastSite ? 'selected' : ''}>${esc(nm(s, 'he'))}${s.en ? ' · ' + esc(s.en) : ''}</option>`).join('')}</select></label>
+    content: `<label class="fld"><span>${esc(t('site'))}</span><select data-k="site">${S.sites.map(s => `<option value="${s.id}" ${s.id === S.cfg.lastSite ? 'selected' : ''}>${esc(nm(s, 'he'))}${s.en ? ' · ' + esc(s.en) : ''}</option>`).join('')}<option value="__new">${S.cfg.lang === 'he' ? '✎ אחר — כתיבה חופשית…' : '✎ Other — type…'}</option></select></label>
+      <label class="fld" data-newsite hidden><span>${S.cfg.lang === 'he' ? 'שם האתר / המיקום' : 'Site / location name'}</span><input data-k="newsite"></label>
       <label class="fld"><span>${esc(t('worker'))}</span><input data-k="worker" value="${esc(S.cfg.worker)}" placeholder="${esc(t('worker_ph'))}"></label>
       <label class="fld"><span>${esc(t('note'))}</span><input data-k="note"></label>`,
     actions: `<button class="btn" data-no>${esc(t('cancel'))}</button><button class="btn primary" data-go>${esc(t('create'))}</button>`
   });
   m.$('[data-no]').onclick = () => m.close();
+  m.$('[data-k="site"]').onchange = e => { const on = e.target.value === '__new'; m.$('[data-newsite]').hidden = !on; if (on) m.$('[data-k="newsite"]').focus(); };
   m.$('[data-go]').onclick = async () => {
     const d = newDoc(type), k = n => m.$(`[data-k="${n}"]`).value.trim();
-    d.site = k('site'); d.worker = k('worker'); d.note = k('note');
+    d.site = k('site'); if (d.site === '__new') { if (!k('newsite')) { m.$('[data-k="newsite"]').focus(); return; } d.site = await addSite(k('newsite')); } d.worker = k('worker'); d.note = k('note');
     if (d.worker && d.worker !== S.cfg.worker) S.cfg.worker = d.worker;
     await saveDoc(d); await log('doc+', `${type} ${d.date}`, d.id); m.close(); onCreate(d);
   };
@@ -84,7 +86,12 @@ export function render(root, { type = 'all' } = {}) {
   if (type === 'all') { $('#nc').onclick = mk('count'); $('#no').onclick = mk('order'); $('#fld').onclick = folderManager; } else $('#new').onclick = mk(type);
   $('#imp').onclick = () => $('#file').click();
   $('#file').onchange = e => { importFiles([...e.target.files], () => { drawFilters(); draw(); }); e.target.value = ''; };
+  let lp = null, lpFired = false;
+  $('#list').addEventListener('pointerdown', e => { const c = e.target.closest('.card.doc'); if (!c) return; lpFired = false; lp = setTimeout(() => { lpFired = true; c.querySelector('[data-more]')?.click(); }, 520); });
+  ['pointerup', 'pointercancel', 'pointermove', 'scroll'].forEach(ev => $('#list').addEventListener(ev, () => clearTimeout(lp), { passive: true }));
+  $('#list').addEventListener('contextmenu', e => { if (e.target.closest('.card.doc')) e.preventDefault(); });
   $('#list').onclick = e => {
+    if (lpFired) { lpFired = false; return; }
     const mo = e.target.closest('[data-more]');
     if (mo) { const d = S.docs.find(x => x.id === mo.dataset.more); menu(mo, [
       { label: t('open'), icon: 'eye', onClick: () => go(d) }, { label: t('export'), icon: 'download', onClick: () => exportDialog({ kind: 'doc', doc: d }) },

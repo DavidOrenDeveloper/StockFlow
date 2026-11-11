@@ -12,8 +12,8 @@ const chk = (k, label, on) => `<label class="chk"><input type="checkbox" data-o=
 export function exportDialog({ kind, doc, items, name = 'catalog' }) {
   const isDoc = kind === 'doc', isCount = isDoc && doc.type === 'count';
   const opts = isDoc
-    ? (isCount ? chk('onlyCounted', t('opt_only_counted'), false) : chk('onlyQty', t('opt_only_ordered'), true)) + chk('en', t('opt_en'), true) + chk('tr', t('opt_tr'), false) + chk('emergency', t('opt_emergency'), false) + chk('img', t('opt_img_pdf'), false)
-    : chk('qtyCol', t('opt_qty_col'), true) + chk('img', t('opt_img_pdf'), false);
+    ? (isCount ? chk('onlyCounted', t('opt_only_counted'), true) : chk('onlyQty', t('opt_only_ordered'), true)) + chk('en', t('opt_en'), false) + chk('tr', t('opt_tr'), false) + chk('emergency', t('opt_emergency'), false) + chk('img', t('opt_img_pdf'), true)
+    : chk('qtyCol', t('opt_qty_col'), true) + chk('img', t('opt_img_pdf'), true);
   const btns = `<button class="btn" data-a="preview">${ic('eye')} ${S.cfg.lang === 'he' ? 'תצוגה מקדימה' : 'Preview'}</button><button class="btn primary" data-a="xlsx">${ic('table')} Excel</button><button class="btn primary" data-a="pdf">${ic('file')} PDF</button>` +
     (isDoc ? `<button class="btn wa" data-a="waimg">${ic('image')} ${esc(t('wa_image'))}</button><button class="btn wa" data-a="watxt">${ic('share')} ${esc(t('wa_text'))}</button><button class="btn" data-a="json">${ic('share')} ${esc(t('send_to_manager'))}</button><button class="btn" data-a="jsondl">${ic('download')} JSON</button>${isCount ? '' : `<button class="btn" data-a="copy">${ic('copy')} ${esc(t('copy_priority'))}</button>`}` : `<button class="btn" data-a="copy">${ic('copy')} ${esc(t('copy_priority'))}</button>`);
   const m = openModal({ title: t('export'), content: `<div class="optgrid">${opts}</div><p class="hint">${esc(t('pdf_hint'))}</p><div class="btnrow wrap">${btns}</div>` });
@@ -34,7 +34,7 @@ export function exportDialog({ kind, doc, items, name = 'catalog' }) {
         if (miss.length && !(await confirmDlg((he ? `ל-${miss.length} שורות אין מק"ט: ` : `${miss.length} lines have no SKU: `) + miss.slice(0, 5).map(l => l.he || l.en).join(', ') + (miss.length > 5 ? '…' : '') + (he ? '. לשלוח בכל זאת?' : '. Send anyway?'), { ok: he ? 'שלח בכל זאת' : 'Send anyway' }))) return;
       }
       if (a === 'xlsx') { download(isDoc ? docXlsx(doc, o) : catalogXlsx(items, o), isDoc ? docXlsxName(doc) : `${name}.xlsx`); }
-      else if (a === 'pdf') { isDoc ? docPdf(doc, o) : catalogPdf(items, o); }
+      else if (a === 'pdf') { await (isDoc ? docPdf(doc, o) : catalogPdf(items, o)); }
       else if (a === 'json' || a === 'jsondl') { await saveDoc(doc, { quiet: true }); const r = await shareDocJson(doc, { share: a === 'json' }); await saveDoc(doc, { quiet: true }); await log('export', `${doc.type} json`, doc.id); if (r === 'downloaded') toast(t('downloaded')); }
       else if (a === 'waimg') { const r = await shareImages(doc, o); if (r === 'downloaded') toast(t('downloaded')); }
       else if (a === 'watxt') openWhatsApp(waText(doc, o));

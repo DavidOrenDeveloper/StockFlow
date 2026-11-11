@@ -57,3 +57,24 @@ main{padding:10px 12px 24px;max-width:1280px;margin:0 auto}.page.narrow{max-widt
 [hidden]{display:none!important}input[type=search]::-webkit-search-cancel-button{display:none}
 
 .sku{font-size:13px;margin-top:2px;white-space:nowrap}.sku .mono{font-weight:700;direction:ltr;unicode-bidi:isolate}.lowtag{display:inline-block;font-size:12px;color:#c0392b;background:#fdecea;border-radius:8px;padding:1px 8px;margin-top:3px}.row:not(.low) .lowtag{display:none}#cartBtn{display:inline-flex;align-items:center;gap:4px;margin-inline-start:6px;white-space:nowrap}
+
+.stk{position:sticky;top:calc(var(--top) + env(safe-area-inset-top));z-index:20;background:var(--bg);padding-bottom:2px}
+
+/* ---- v1.6: flatter, calmer buttons; slim bottom bar; row extras ---- */
+.btn{border-radius:10px;min-height:38px;padding:0 14px;font-weight:600;font-size:14px;box-shadow:none}
+.btn:active{transform:none;background:var(--primary-soft)}
+.btn.primary:active{background:var(--primary);filter:brightness(.9)}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px;border-radius:8px}
+.pill{padding:5px 12px;font-size:13px;font-weight:500}
+.qty button{border-radius:10px;background:var(--card);width:40px;height:44px}
+.qty input{border-width:1.5px;border-radius:10px;height:44px;width:68px;font-size:19px}
+.footbar.slim{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:6px;margin-top:10px;border-radius:14px;box-shadow:0 4px 16px rgba(15,25,45,.14)}
+.footbar.slim .btn{min-height:40px;padding:0 6px;white-space:nowrap}
+.pthin{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin:2px 0 0}
+.pthin i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
+.editor .ttl{min-width:0}.editor .ttl small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowed{display:inline-grid;place-items:center;width:26px;height:26px;border:0;background:var(--bg);color:var(--muted);border-radius:8px;vertical-align:middle;margin-inline-start:4px;padding:0}
+.btn.lnkb{min-height:0;padding:1px 8px;font-size:11px;margin-top:3px;border-radius:6px}
+.rnote{grid-column:1/-1}
+.rnote input{width:100%;height:38px;border:1px dashed var(--line);border-radius:10px;padding:0 10px;background:var(--bg)}
+.sku{white-space:normal}.sku .mono{overflow-wrap:anywhere}.sku.long .mono{display:block}

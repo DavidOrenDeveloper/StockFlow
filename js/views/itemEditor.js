@@ -13,8 +13,8 @@ export function editItem(item, { isNew = false, onDone } = {}) {
     title: isNew ? t('add_item') : t('edit_item'), wide: true,
     content: `<div class="ie">
       <div class="ie-img"><button class="imgbox" data-zoom type="button">${imgOf(d) ? `<img src="${imgOf(d)}">` : ic('image', 36)}</button>
-        <div class="btnrow"><button class="btn sm" data-pick type="button">${ic('image', 16)} ${esc(t('photo'))}</button><button class="btn sm danger-o" data-rmimg type="button">${ic('trash', 16)}</button></div>
-        <input type="file" accept="image/*" hidden data-file></div>
+        <div class="btnrow"><button class="btn sm" data-cam type="button">${ic('image', 16)} ${esc(S.cfg.lang === 'he' ? 'צלם' : 'Camera')}</button><button class="btn sm" data-pick type="button">${ic('image', 16)} ${esc(S.cfg.lang === 'he' ? 'גלריה' : 'Gallery')}</button><button class="btn sm danger-o" data-rmimg type="button">${ic('trash', 16)}</button></div>
+        <input type="file" accept="image/*" hidden data-file><input type="file" accept="image/*" capture="environment" hidden data-file-cam></div>
       <div class="ie-f">
         <label class="fld"><span>${esc(t('name_he'))}</span><input data-f="he" dir="rtl" value="${esc(d.he)}" autocomplete="off"></label>
         <label class="fld"><span>${esc(t('name_en'))}</span><div class="withbtn"><input data-f="en" dir="ltr" value="${esc(d.en)}" autocomplete="off"><button class="icon-btn" type="button" data-wand="en" title="${esc(t('suggest'))}">${ic('wand', 18)}</button></div></label>
@@ -25,7 +25,6 @@ export function editItem(item, { isNew = false, onDone } = {}) {
         <label class="fld"><span>${esc(t('unit'))}</span><select data-f="unit">${opt(S.units, d.unit)}</select></label></div>
         <div class="fld"><span>${esc(t('synonyms_item'))}</span><div class="chips" data-chips></div><input data-syn placeholder="${esc(t('syn_ph'))}"></div>
         <label class="fld"><span>${esc(t('note'))}</span><input data-f="note" value="${esc(d.note || '')}"></label>
-        ${d.bulk !== undefined ? `<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-inlist ${d.bulk ? '' : 'checked'}><span>${esc(S.cfg.lang === 'he' ? 'להציג ברשימת הספירה וההזמנה' : 'Show in count & order lists')}</span></label>` : ''}
       </div></div>`,
     actions: `${isNew ? '' : `<button class="btn danger-o" data-del>${ic('trash', 16)} ${esc(t('delete'))}</button>`}<span class="grow"></span><button class="btn" data-no>${esc(t('cancel'))}</button><button class="btn primary" data-save>${esc(t('save'))}</button>`
   });
@@ -40,7 +39,9 @@ export function editItem(item, { isNew = false, onDone } = {}) {
   m.$$('[data-wand]').forEach(b => b.onclick = () => { const k = b.dataset.wand; F(k).value = k === 'en' ? suggestEn(he.value) : suggestTr(he.value); if (k === 'en') enAuto = false; else trAuto = false; });
   const refreshImg = () => { const u = pendUrl || (removeImg ? '' : imgOf(d)); m.$('.imgbox').innerHTML = u ? `<img src="${u}">` : ic('image', 36); return u; };
   m.$('[data-pick]').onclick = () => m.$('[data-file]').click();
-  m.$('[data-file]').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { pending = await resizeImage(f); pendUrl = URL.createObjectURL(pending); removeImg = false; refreshImg(); } catch { toast(t('error')); } };
+  m.$('[data-cam]').onclick = () => m.$('[data-file-cam]').click();
+  const onFile = async e => { const f = e.target.files[0]; if (!f) return; try { pending = await resizeImage(f); pendUrl = URL.createObjectURL(pending); removeImg = false; refreshImg(); } catch { toast(t('error')); } e.target.value = ''; };
+  m.$('[data-file]').onchange = onFile; m.$('[data-file-cam]').onchange = onFile;
   m.$('[data-rmimg]').onclick = () => { pending = null; pendUrl = ''; removeImg = true; refreshImg(); };
   m.$('[data-zoom]').onclick = () => zoomImg(refreshImg(), he.value);
   m.$('[data-no]').onclick = () => m.close();
@@ -48,11 +49,11 @@ export function editItem(item, { isNew = false, onDone } = {}) {
   m.$('[data-save]').onclick = async () => {
     addSyn();
     const o = { ...d, he: he.value.trim(), en: en.value.trim(), tr: tr.value.trim(), sku: F('sku').value.trim(), emergency: num(F('emergency').value), cat: F('cat').value, unit: F('unit').value, note: F('note').value.trim() };
-    if (d.bulk !== undefined) o.bulk = !m.$('[data-inlist]').checked;
     if (!o.he && !o.en) { he.focus(); he.classList.add('err'); return; }
     if (o.sku) { const dup = S.items.find(i => i.sku === o.sku && i.id !== o.id); if (dup && !(await confirmDlg(t('dup_sku', { n: dup.he })))) return; }
     if (pending) await setImage(o, pending); else if (removeImg) await removeImage(o);
     await saveItem(o); m.close(); toast(t('saved')); onDone && onDone(o);
   };
+  if (isNew && d.he) he.oninput();
   if (isNew) setTimeout(() => he.focus(), 80);   // no auto-keyboard when just opening an existing item: one Back press closes it
 }

@@ -51,6 +51,7 @@ export async function init() {
   await loadImages(); reindex();
   await applyUnitFix();
   await applyShapirImport();
+  await applyRemovals();
 }
 // One-time: cables/wires/conduits etc. were all 'unit'; set them to meters (only where the user did not change the unit).
 async function applyUnitFix() {
@@ -75,11 +76,30 @@ async function applyShapirImport() {
     for (const [sku, name, unit, img, cat, alts] of j.items) {
       const id = 'sh_' + sku;
       if (haveSku.has(sku) || haveKey.has(sku + '|' + name) || S.byId.has(id)) continue;
-      add.push({ id, sku, he: name, en: '', tr: '', cat, unit: S.units.some(u => u.id === unit) ? unit : unit0, emergency: null, syn: alts || [], imgId: null, imgUrl: img ? `data/img/${img}.webp` : '', note: '', order: ++order, src: 'shapir', srcKey: sku + '|' + name, bulk: true, createdAt: now, updatedAt: now });
+      add.push({ id, sku, he: name, en: '', tr: '', cat, unit: S.units.some(u => u.id === unit) ? unit : unit0, emergency: null, syn: alts || [], imgId: null, imgUrl: img ? `data/img/${img}.webp` : '', note: '', order: ++order, src: 'shapir', srcKey: sku + '|' + name, createdAt: now, updatedAt: now });
     }
     if (add.length) { await db.putMany('items', add); S.items.push(...add); reindex(); await log('shapir', `imported ${add.length}`); }
     S.cfg.shapirAll150 = true; await db.kvSet('cfg', S.cfg);
   } catch (e) { /* offline: retry next start */ }
+}
+// Removes catalog items listed in data/remove.json (moving quantities already entered in documents to the replacement item).
+async function applyRemovals() {
+  if ((S.cfg.removeV || 0) >= 1) return;
+  try {
+    const j = await (await fetch('data/remove.json', { cache: 'no-cache' })).json();
+    for (const [from, to] of Object.entries(j.map || {})) {
+      if (!S.byId.has(from)) continue;
+      if (to && S.byId.has(to)) for (const d of S.docs) if (d.lines[from] != null) { if (d.lines[to] == null) d.lines[to] = d.lines[from]; delete d.lines[from]; await saveDoc(d, { quiet: true }); }
+      await deleteItem(from);
+    }
+    S.cfg.removeV = 1; await db.kvSet('cfg', S.cfg);
+  } catch (e) { /* offline: retry next start */ }
+}
+export async function addSite(name) {   // free-text site / location typed by the user
+  name = String(name || '').trim(); if (!name) return '';
+  let s = S.sites.find(x => (x.he || '').trim() === name);
+  if (!s) { s = { id: uid('s'), he: name, en: '' }; S.sites.push(s); await saveList('sites'); }
+  return s.id;
 }
 // Warms the image cache in the background so photos also work offline on site.
 export async function prefetchImages() {
@@ -145,10 +165,8 @@ export async function saveDoc(d, { quiet = false } = {}) {
 }
 export async function deleteDoc(id) { S.docs = S.docs.filter(d => d.id !== id); await db.del('docs', id); await log('doc-', id); emit(); }
 export async function setStatus(d, st) { d.status = st; await saveDoc(d); await log('status', `${d.type}:${st}`, d.id); }
-// Items bulk-imported from the Shapir catalog are searchable everywhere, but appear in a count / order sheet only once a quantity was entered (or when switched on in the item).
-export const inList = (d, it) => !it.bulk || d.lines[it.id] != null;
 export const docItems = d => { // rows for a doc: catalog items (ordered) + deleted items kept via snapshot
-  const rows = S.items.filter(it => !d.hidden?.[it.id] && inList(d, it)).map(it => ({ id: it.id, it, snap: null }));
+  const rows = S.items.filter(it => !d.hidden?.[it.id]).map(it => ({ id: it.id, it, snap: null }));
   for (const id of Object.keys(d.lines)) if (!S.byId.has(id) && d.snap[id] && !d.hidden?.[id]) rows.push({ id, it: null, snap: d.snap[id] });
   return rows;
 };

@@ -98,12 +98,20 @@ export function buildIndex(items, names) {
     return { it, f, f2, syn, all, l: { he: loose(n.he), en: loose(n.en), tr: loose(n.tr), all: loose([n.he, n.en, n.tr, ...(it.syn || [])].join(' ')) } };
   });
 }
+// Built-in abbreviations that always mean the same thing (searching either form finds both): על הטיח = עה"ט, תחת הטיח = תה"ט, חצי אוטומט = ח"א = מאמ"ת = מא"ז ...
+const BUILTIN = [['עהט', 'על הטיח'], ['תהט', 'תחת הטיח'], ['חא', 'חצי אוטומט', 'חצי אוטומטי', 'מאמת', 'מאז', 'מפסק אוטומטי זעיר', 'מפסק זעיר'], ['מוגמ', 'מוגן מים']].map(g => g.map(norm));
+function phraseVariants(qn) {
+  const out = [], pad = ` ${qn} `;
+  for (const g of BUILTIN) for (const m of g) if (pad.includes(` ${m} `)) for (const o of g) if (o !== m) out.push(pad.replace(` ${m} `, ` ${o} `).trim());
+  return out;
+}
 function expandQueries(qn, groups) {
   const variants = [{ q: qn, syn: false }];
-  if (!groups || !groups.length) return variants;
-  const gk = groups.map(g => g.words.map(norm).filter(Boolean));
   const seen = new Set([qn]);
   const add = q => { if (!seen.has(q) && variants.length < 40) { seen.add(q); variants.push({ q, syn: true }); } };
+  phraseVariants(qn).forEach(q => { if (!seen.has(q)) { seen.add(q); variants.push({ q, syn: false }); } });
+  if (!groups || !groups.length) return variants;
+  const gk = groups.map(g => g.words.map(norm).filter(Boolean));
   gk.forEach(ws => { if (ws.includes(qn)) ws.forEach(w => add(w)); });
   const toks = qn.split(' ');
   if (toks.length > 1) toks.forEach((t, i) => gk.forEach(ws => { if (ws.includes(t) && !isNum(t)) ws.forEach(w => add([...toks.slice(0, i), w, ...toks.slice(i + 1)].join(' '))); }));

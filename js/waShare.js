@@ -2,15 +2,22 @@
 // inside WhatsApp on any phone, plus a plain-text version via wa.me. No server involved.
 import { S, nm, siteOf } from './store.js';
 import { t, dir } from './i18n.js';
-import { docLines, docTitle } from './exporter.js';
+import { docLines, docTitle, toDataUrl } from './exporter.js';
 import { fmtQty, fmtDate, safeName, download } from './util.js';
 
 const W = 1000, ROW = 104, HEAD = 190, PER = 13;
-const loadImg = src => new Promise(r => { if (!src) return r(null); const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+const loadImg = async src => { if (!src) return null; try { const u = await toDataUrl(src); return await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = u; }); } catch (e) { return null; } };
+// shrink to fit one line, then (for long codes) wrap onto two lines — never cut with "…"
+const fitFont = (g, s, max, sizes, face, bold = 'bold') => { for (const z of sizes) { g.font = `${bold} ${z}px ${face}`; if (g.measureText(s).width <= max) return z; } return 0; };
+function drawCode(g, s, x, y, max) {
+  const z = fitFont(g, s, max, [28, 24, 20, 17], 'monospace');
+  if (z) { g.fillText(s, x, y); return; }
+  g.font = 'bold 17px monospace'; const h = Math.ceil(s.length / 2); g.fillText(s.slice(0, h), x, y - 11); g.fillText(s.slice(h), x, y + 11);
+}
 const fit = (ctx, s, max) => { s = String(s ?? ''); if (ctx.measureText(s).width <= max) return s; while (s.length > 1 && ctx.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
 
 export async function docImages(d, o = {}) {
-  const lines = docLines(d, { onlyQty: d.type === 'order', onlyCounted: o.onlyCounted });
+  const lines = docLines(d, o);
   const rtl = dir() === 'rtl', pages = Math.max(1, Math.ceil(lines.length / PER)), blobs = [];
   const imgs = await Promise.all(lines.map(l => loadImg(l.img)));
   const X = (x, w = 0) => rtl ? W - x - w : x;            // mirror helper
@@ -32,9 +39,9 @@ export async function docImages(d, o = {}) {
       if (im) { const s = Math.min(84 / im.width, 84 / im.height); g.drawImage(im, X(34, 84) + (84 - im.width * s) / 2, y + 10 + (84 - im.height * s) / 2, im.width * s, im.height * s); }
       g.textAlign = rtl ? 'right' : 'left'; g.fillStyle = '#16202e'; g.font = 'bold 30px Arial';
       const tx = rtl ? X(140, 470) + 470 : X(140, 470);
-      g.fillText(fit(g, nm({ he: l.he, en: l.en, tr: l.tr }), 460), tx, y + 38);
-      g.font = '22px Arial'; g.fillStyle = '#64748b'; const sec = S.cfg.lang === 'he' ? (l.en || l.tr) : l.he; g.fillText(fit(g, [sec, l.unit].filter(Boolean).join(' · '), 460), tx, y + 76);
-      g.font = 'bold 28px monospace'; g.fillStyle = '#16202e'; g.textAlign = rtl ? 'right' : 'left'; if (l.sku) { g.font = '20px Arial'; g.fillStyle = '#64748b'; g.fillText(t('sku'), rtl ? X(620, 200) + 200 : X(620, 200), y + ROW / 2 - 24); g.font = 'bold 28px monospace'; g.fillStyle = '#16202e'; } g.fillText(fit(g, l.sku || '—', 200), rtl ? X(620, 200) + 200 : X(620, 200), y + ROW / 2 + (l.sku ? 10 : 0));
+      { const nmx = nm({ he: l.he, en: l.en, tr: l.tr }); const z = fitFont(g, nmx, 460, [30, 26, 22], 'Arial'); g.fillText(z ? nmx : fit(g, nmx, 460), tx, y + 38); }
+      g.font = '22px Arial'; g.fillStyle = '#64748b'; const sec = S.cfg.lang === 'he' ? [o.en && l.en, o.tr && l.tr] : [l.he]; g.fillText(fit(g, [...sec, l.unit, l.note].filter(Boolean).join(' · '), 460), tx, y + 76);
+      g.font = 'bold 28px monospace'; g.fillStyle = '#16202e'; g.textAlign = rtl ? 'right' : 'left'; if (l.sku) { g.font = '20px Arial'; g.fillStyle = '#64748b'; g.fillText(t('sku'), rtl ? X(620, 200) + 200 : X(620, 200), y + ROW / 2 - 24); g.font = 'bold 28px monospace'; g.fillStyle = '#16202e'; } drawCode(g, l.sku || '—', rtl ? X(620, 200) + 200 : X(620, 200), y + ROW / 2 + (l.sku ? 12 : 0), 200);
       g.textAlign = 'center'; g.fillStyle = '#1f5fbf'; g.font = 'bold 44px Arial'; g.fillText(l.qty == null ? '—' : fmtQty(l.qty), X(830, 140) + 70, y + ROW / 2);
     });
     g.fillStyle = '#8a97ad'; g.font = '20px Arial'; g.textAlign = 'center'; g.fillText(`${fmtDate(d.date, 'en')} · ${nm(siteOf(d.site), 'he')}`, W / 2, H - 22);
@@ -49,7 +56,7 @@ export async function shareImages(d, o) {
   files.forEach(f => download(f, f.name)); return 'downloaded';
 }
 export function waText(d, o = {}) {
-  const lines = docLines(d, { onlyQty: d.type === 'order', onlyCounted: o.onlyCounted });
-  return `*${docTitle(d)}*${d.worker ? '\n' + d.worker : ''}\n\n` + lines.map(l => `• ${nm({ he: l.he, en: l.en, tr: l.tr })}${l.sku ? ' | ' + t('sku') + ' ' + l.sku : ''} — *${l.qty == null ? '—' : fmtQty(l.qty)}* ${l.unit}`).join('\n');
+  const lines = docLines(d, o), he = S.cfg.lang === 'he';
+  return `*${docTitle(d)}*${d.worker ? '\n' + d.worker : ''}\n\n` + lines.map(l => `• ${nm({ he: l.he, en: l.en, tr: l.tr })}${he && o.en && l.en ? ' / ' + l.en : ''}${he && o.tr && l.tr ? ' / ' + l.tr : ''}${l.sku ? ' | ' + t('sku') + ' ' + l.sku : ''} — *${l.qty == null ? '—' : fmtQty(l.qty)}* ${l.unit}${l.note ? ' (' + l.note + ')' : ''}`).join('\n');
 }
 export const openWhatsApp = text => window.open('https://wa.me/?text=' + encodeURIComponent(text.slice(0, 3800)), '_blank');
