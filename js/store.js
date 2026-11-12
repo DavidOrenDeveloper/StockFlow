@@ -152,7 +152,7 @@ export async function removeImage(item) { if (item.imgId) { await db.del('images
 // ---------- items ----------
 export const newItem = () => ({ id: uid('i'), sku: '', he: '', en: '', tr: '', cat: S.cats[0]?.id || '', unit: S.units[0]?.id || '', emergency: null, syn: [], imgId: null, note: '', order: Math.max(0, ...S.items.map(i => i.order || 0)) + 1, createdAt: new Date().toISOString() });
 export async function saveItem(it) {
-  it.updatedAt = new Date().toISOString(); it.sku = String(it.sku ?? '').trim();
+  it.updatedAt = it.editedAt = new Date().toISOString(); it.sku = String(it.sku ?? '').trim();   // editedAt = a real user edit (used by "send catalog updates to the manager")
   const isNew = !S.byId.has(it.id);
   if (isNew) S.items.push(it); else S.items[S.items.findIndex(x => x.id === it.id)] = it;
   await db.put('items', it); reindex(); await log(isNew ? 'item+' : 'item~', it.he || it.en, it.id); emit();
@@ -234,6 +234,19 @@ export async function restoreDefaultCatalog() {
   items.forEach(it => { delete it._img; });
   await replaceCatalog({ items, images, cats: seed.categories, units: seed.units, groups: seed.synonyms, sites: seed.sites, reimportShapir: true });
   await log('catalog', 'default restored');
+}
+
+// ---------- catalog updates a worker sends to the manager (only what was added/changed since the last send) ----------
+export const pendingUpdates = () => S.items.filter(i => i.editedAt && i.editedAt > (S.cfg.updSentAt || ''));
+export async function exportUpdatesBlob(items = pendingUpdates()) {
+  const ids = new Set(items.map(i => i.imgId).filter(Boolean)), images = [];
+  for (const r of await db.getAll('images')) if (ids.has(r.id)) images.push({ id: r.id, data: await blobToDataURL(r.blob) });
+  return new Blob([JSON.stringify({ app: APP_ID, kind: 'updates', appVersion: APP_VERSION, createdAt: new Date().toISOString(), by: S.cfg.worker || '', items, images })], { type: 'application/json' });
+}
+export async function markUpdatesSent(items = pendingUpdates()) {   // also writes the send log (date, how many, which items) so it can be re-sent later
+  const ts = new Date().toISOString(); S.cfg.updSentAt = ts;
+  S.cfg.updLog = [{ ts, ids: items.map(i => i.id), n: items.length, names: items.slice(0, 3).map(i => i.he || i.en || '') }, ...(S.cfg.updLog || [])].slice(0, 40);
+  await db.kvSet('cfg', S.cfg); emit();
 }
 
 // ---------- full backup ----------

@@ -24,7 +24,7 @@ const guessCat = n => (CATS.find(([re]) => re.test(n)) || [0, S.cats.find(c => c
 
 export function render(root) {
   let tab = 'match', showAll = false, shown = 15, q = '', adShown = 40;
-  const skipped = new Set();
+  const skipped = new Set(), undo = [];   // undo = last SKU changes made on this page
   root.innerHTML = `<div class="page"><div class="bar"><b>${esc(L('מק"טי שפיר', 'Shapir SKUs'))}</b></div>
     <div class="chips-row"><button class="pill" data-t="match"></button><button class="pill" data-t="add"></button></div><div id="body"><div class="spinner"></div></div></div>`;
   const $ = s => root.querySelector(s);
@@ -46,8 +46,9 @@ export function render(root) {
         <div style="display:flex;gap:6px;margin-top:6px"><input class="srch" placeholder="${esc(L('חפש בקטלוג שפיר…', 'Search Shapir…'))}" style="flex:1"><input class="man" placeholder="${esc(L('מק"ט ידני', 'Manual SKU'))}" dir="ltr" style="width:34%"><button class="btn sm" data-man="${it.id}">${ic('edit', 14)}</button></div>
         <div class="res"></div><div style="margin-top:4px">${has ? `<button class="btn sm" data-clr="${it.id}">${esc(L('נקה מק"ט', 'Clear SKU'))}</button>` : `<button class="btn sm" data-skip="${it.id}">${esc(L('דלג', 'Skip'))}</button>`}</div></div>`;
     }).join('');
-    $('#body').innerHTML = `<div class="chips-row"><button class="pill ${showAll ? '' : 'on'}" data-f="miss">${esc(L('ללא מק"ט', 'Without SKU'))}</button><button class="pill ${showAll ? 'on' : ''}" data-f="all">${esc(L('כל הפריטים (עריכה)', 'All items (edit)'))}</button></div>
-      <p class="hint">${esc(L('לחיצה על הצעה מאשרת אותה. אפשר לחפש או להקליד מק"ט ידנית, ולערוך או לנקות בכל זמן.', 'Tap a suggestion to approve it. You can search or type a SKU, and edit or clear anytime.'))}</p>${cards || `<div class="empty"><p>${esc(L('אין פריטים להצגה', 'Nothing to show'))}</p></div>`}${list.length > shown ? `<button class="btn" data-more>${esc(L('עוד', 'More'))} (${list.length - shown})</button>` : ''}`;
+    const lu = undo[undo.length - 1], luIt = lu && S.byId.get(lu.id);
+    $('#body').innerHTML = `${luIt ? `<button class="btn sm" data-undo style="margin:6px 0;width:100%">↶ ${esc(L('בטל', 'Undo'))}: ${esc(nm(luIt))} · ${esc(luIt.sku ? L('מק"ט', 'SKU') + ' ' + luIt.sku : L('נוקה המק"ט', 'SKU cleared'))}</button>` : ''}<div class="chips-row"><button class="pill ${showAll ? '' : 'on'}" data-f="miss">${esc(L('ללא מק"ט', 'Without SKU'))}</button><button class="pill ${showAll ? 'on' : ''}" data-f="all">${esc(L('כל הפריטים (עריכה)', 'All items (edit)'))}</button></div>
+      <p class="hint">${esc(L('כאן משייכים מק"ט שפיר לפריטים שלך שעדיין בלי מק"ט. מתחת לכל פריט מוצעים עד 3 פריטים מקטלוג שפיר, לפי הדמיון בין המילים והמספרים בשם (האחוז מראה כמה דומה). לחיצה על הצעה שומרת את המק"ט מיד. אם טעית – לחץ "בטל" למעלה. אפשר גם לחפש בקטלוג שפיר, להקליד מק"ט ידנית, או לדלג.', 'Here you give your items without a SKU a Shapir SKU. Under each item up to 3 Shapir items are suggested by how similar the words and numbers in the names are (the % shows how close). Tapping a suggestion saves the SKU immediately; if you tapped by mistake press "Undo" at the top. You can also search Shapir, type a SKU manually, or skip.'))}</p>${cards || `<div class="empty"><p>${esc(L('אין פריטים להצגה', 'Nothing to show'))}</p></div>`}${list.length > shown ? `<button class="btn" data-more>${esc(L('עוד', 'More'))} (${list.length - shown})</button>` : ''}`;
   }
   function drawAdd() {
     const ad = added(), have = new Set(ad.map(i => i.srcKey));
@@ -61,7 +62,7 @@ export function render(root) {
     const inp = $('#aq'); if (inp) { inp.oninput = debounce(() => { q = inp.value; drawAdd(); const n = $('#aq'); n.focus(); n.setSelectionRange(q.length, q.length); }, 250); }
   }
   const draw = () => { drawTabs(); tab === 'match' ? drawMatch() : drawAdd(); };
-  async function approve(id, sku) { const it = S.byId.get(id); if (!it) return; it.sku = sku; await saveItem(it); toast(L('המק"ט עודכן', 'SKU updated')); draw(); }
+  async function approve(id, sku) { const it = S.byId.get(id); if (!it) return; undo.push({ id, prev: it.sku || '' }); it.sku = sku; await saveItem(it); toast(L('המק"ט עודכן', 'SKU updated')); draw(); }
 
   root.onclick = async e => {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
@@ -72,7 +73,8 @@ export function render(root) {
     else if (d.ap) { const [id, sku] = d.ap.split('|'); approve(id, sku); }
     else if (d.man) { const v = b.closest('.card').querySelector('.man').value.trim(); if (v) approve(d.man, v); }
     else if (d.skip) { skipped.add(d.skip); draw(); }
-    else if (d.clr) { const it = S.byId.get(d.clr); if (it) { it.sku = ''; await saveItem(it); draw(); } }
+    else if (d.clr) { const it = S.byId.get(d.clr); if (it) { undo.push({ id: it.id, prev: it.sku || '' }); it.sku = ''; await saveItem(it); draw(); } }
+    else if (d.undo !== undefined) { const u = undo.pop(); const it = u && S.byId.get(u.id); if (it) { it.sku = u.prev; await saveItem(it); toast(L('הפעולה בוטלה', 'Undone')); } draw(); }
     else if (d.add) {
       const c = CAT.find(x => x.key === d.add); if (!c) return;
       const it = newItem(); Object.assign(it, { sku: c.sku, he: c.name, cat: guessCat(c.name), unit: S.units.find(u => u.id === c.unit) ? c.unit : it.unit, src: 'shapir', srcKey: c.key });

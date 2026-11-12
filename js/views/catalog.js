@@ -8,7 +8,7 @@ import { exportDialog } from './exportDialog.js';
 
 export function render(root) {
   let q = '', cat = '', sel = new Set(), selMode = false;
-  const worker = () => S.cfg.workerMode;
+  const worker = () => false;   // old "worker mode" removed
   root.innerHTML = `<div class="page">
     <div class="bar sticky"><div class="searchbox">${ic('search', 18)}<input id="q" type="search" placeholder="${esc(t('search_ph'))}" autocomplete="off" enterkeyhint="search"><button class="icon-btn" id="qx" hidden>${ic('x', 16)}</button></div>
       <button class="btn" id="selBtn">${ic('check', 18)} <span>${esc(t('select'))}</span></button>

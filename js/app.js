@@ -22,13 +22,13 @@ function shell() {
     <main id="view"></main>
     <nav class="nav">${NAV.map(([k, i, l]) => `<a href="#/${k}" data-n="${k}">${ic(i, 22)}<span>${esc(t(l))}</span></a>`).join('')}</nav>`;
   app.querySelector('.seg').onclick = e => { const b = e.target.closest('[data-l]'); if (b && b.dataset.l !== S.cfg.lang) setLang(b.dataset.l); };
-  document.getElementById('instBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; document.getElementById('instBtn').hidden = true; };
+  document.getElementById('instBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = window.__pwaInstall = null; document.getElementById('instBtn').hidden = true; };
 }
 function route() {
   if (cleanup) { try { cleanup(); } catch (e) { console.error(e); } cleanup = null; }
   const [, r = 'catalog', arg] = (location.hash || '#/catalog').slice(1).split('/');
   const view = document.getElementById('view'); view.scrollTop = 0; window.scrollTo(0, 0);
-  document.body.dataset.route = r;                       // lets CSS hide the developer credit inside a document (editor) page
+  document.body.dataset.route = r; document.getElementById('skuBtn')?.classList.toggle('on', r === 'sku');                       // lets CSS hide the developer credit inside a document (editor) page
   const key = r === 'doc' ? (S.docs.find(d => d.id === arg)?.type === 'order' ? 'orders' : 'counts') : r;
   document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.dataset.n === key));
   const rerender = () => route();
@@ -74,8 +74,8 @@ async function boot() {
   applyDir(); shell(); route(); askName(); initBack();
   window.addEventListener('hashchange', route);
   window.addEventListener('sc-rerender', () => { shell(); route(); });
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; const b = document.getElementById('instBtn'); if (b) b.hidden = false; });
-  window.addEventListener('appinstalled', () => { installEvt = null; toast(t('installed')); const b = document.getElementById('instBtn'); if (b) b.hidden = true; });
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = window.__pwaInstall = e; const b = document.getElementById('instBtn'); if (b) b.hidden = false; });
+  window.addEventListener('appinstalled', () => { installEvt = window.__pwaInstall = null; toast(t('installed')); const b = document.getElementById('instBtn'); if (b) b.hidden = true; });
   initPWA(showUpdate);
   setTimeout(prefetchImages, 4000);
 }

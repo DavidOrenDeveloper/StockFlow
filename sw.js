@@ -1,6 +1,6 @@
 /* Service worker – scoped to this folder only. Cache names are prefixed with the app id, so it never touches other apps on the same domain. */
 const APP_ID = 'stockcount-7f3a9c';
-const VERSION = '1.6.3';                       // keep equal to js/config.js APP_VERSION and version.json
+const VERSION = '1.6.6';                       // keep equal to js/config.js APP_VERSION and version.json
 const CACHE = `${APP_ID}-cache-${VERSION}`;
 const IMG_CACHE = `${APP_ID}-img-v2`;           // product images: survives app updates; bump the suffix only when image files are replaced
 const CORE = [

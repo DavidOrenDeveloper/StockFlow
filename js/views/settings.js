@@ -1,4 +1,4 @@
-import { S, nm, setCfg, saveList, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
+import { S, nm, setCfg, saveList, pendingUpdates, exportUpdatesBlob, markUpdatesSent, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
 import { t, setLang } from '../i18n.js';
 import { esc, fmtDateTime, download, shareOrDownload, stamp, readFileText, toast, uid, safeName } from '../util.js';
 import { ic } from '../icons.js';
@@ -11,15 +11,14 @@ import { suggestEn, suggestTr } from '../lexicon.js';
 
 const sw = (k, label, on, hint = '') => `<label class="switch"><input type="checkbox" data-sw="${k}" ${on ? 'checked' : ''}><i></i><span>${esc(label)}${hint ? `<small>${esc(hint)}</small>` : ''}</span></label>`;
 export function render(root, { rerender }) {
-  const c = S.cfg, worker = c.workerMode;
+  const c = S.cfg, worker = false;   // the old "worker mode" was removed
   root.innerHTML = `<div class="page narrow"><h1 class="ptitle">${esc(t('settings'))}</h1>
     <section class="card sec"><h2>${ic('globe', 20)} ${esc(t('display'))}</h2>
       <div class="seg3" id="lang">${[['he', 'עברית'], ['en', 'English'], ['tr', 'ABC']].map(([k, l]) => `<button class="${c.lang === k ? 'on' : ''}" data-l="${k}">${l}</button>`).join('')}</div>
       <p class="hint">${esc(t('lang_hint'))}</p>
       <label class="fld"><span>${esc(t('theme'))}</span><select data-sel="theme">${['auto', 'light', 'dark'].map(v => `<option value="${v}" ${c.theme === v ? 'selected' : ''}>${esc(t('theme_' + v))}</option>`).join('')}</select></label></section>
     <section class="card sec"><h2>${ic('edit', 20)} ${esc(t('me'))}</h2>
-      <label class="fld"><span>${esc(t('worker_name'))}</span><input data-in="worker" value="${esc(c.worker)}" placeholder="${esc(t('worker_ph'))}"></label>
-      ${sw('workerMode', t('worker_mode'), c.workerMode, t('worker_mode_hint'))}</section>
+      <label class="fld"><span>${esc(t('worker_name'))}</span><input data-in="worker" value="${esc(c.worker)}" placeholder="${esc(t('worker_ph'))}"></label></section>
     <section class="card sec"><h2>${ic('search', 20)} ${esc(t('smart_search'))}</h2>
       ${sw('synOn', t('use_synonyms'), c.synOn, t('use_synonyms_hint'))}${sw('fuzzy', t('use_fuzzy'), c.fuzzy, t('use_fuzzy_hint'))}
       ${worker ? '' : `<div class="btnrow wrap"><button class="btn" id="syn">${ic('list', 18)} ${esc(t('manage_synonyms'))}</button></div>`}</section>
@@ -27,15 +26,17 @@ export function render(root, { rerender }) {
       <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button><button class="btn" id="clrEm">${c.lang === 'he' ? 'איפוס כל המינימום' : 'Reset all minimums'}</button></div></section>`}
     <section class="card sec"><h2>${ic('download', 20)} ${esc(t('data'))}</h2>
       <p class="hint">${esc(t('last_backup'))}: <b>${c.lastBackup ? esc(fmtDateTime(c.lastBackup, c.lang)) : esc(t('never'))}</b></p>
-      <div class="btnrow wrap"><button class="btn primary" id="bk">${ic('download', 18)} ${esc(t('backup_full'))}</button><button class="btn" id="bks">${ic('share', 18)} ${esc(t('backup_share'))}</button>${worker ? '' : `<button class="btn" id="rs">${ic('upload', 18)} ${esc(t('restore'))}</button>`}</div>
+      <div class="btnrow wrap"><button class="btn" id="bk">${ic('download', 18)} ${esc(t('backup_full'))}</button><button class="btn" id="bks">${ic('share', 18)} ${esc(t('backup_share'))}</button>${worker ? '' : `<button class="btn" id="rs">${ic('upload', 18)} ${esc(t('restore'))}</button>`}</div>
+      <p class="hint" style="margin-top:14px">${esc(c.lang === 'he' ? `הוספת או תיקנת פריטים ותמונות? שלח אותם למנהל: ${pendingUpdates().length} פריטים מחכים לשליחה.` : `Added or fixed items and photos? Send them to the manager: ${pendingUpdates().length} items waiting.`)}</p>
+      <div class="btnrow wrap"><button class="btn" id="updSend">${ic('share', 18)} ${esc(c.lang === 'he' ? 'שלח עדכוני קטלוג למנהל' : 'Send catalog updates to manager')}</button><button class="btn" id="updLog">${ic('history', 18)} ${esc(c.lang === 'he' ? 'יומן שליחות' : 'Send log')}</button></div>
       <input type="file" id="rsf" accept=".json,application/json" hidden><input type="file" id="impf" accept=".json,application/json" multiple hidden>
       <div class="btnrow wrap"><button class="btn" id="catSend">${S.cfg.lang === 'he' ? 'שלח קטלוג (קובץ)' : 'Send catalog (file)'}</button><button class="btn" id="catGet">${S.cfg.lang === 'he' ? 'קבל קטלוג מקובץ' : 'Load catalog from file'}</button><button class="btn danger" id="catReset">${S.cfg.lang === 'he' ? 'שחזור קטלוג לברירת מחדל' : 'Restore default catalog'}</button></div>
-      <p class="hint">${S.cfg.lang === 'he' ? 'הקטלוג הוא רשימת הפריטים בלבד. ספירות והזמנות לא נשלחות ולא נמחקות. שחזור לברירת מחדל מחזיר את הקטלוג המקורי של האפליקציה.' : 'The catalog is the item list only. Counts and orders are never sent or deleted. Restore default returns the app\'s original catalog.'}</p>
+      <p class="hint">${S.cfg.lang === 'he' ? 'הקטלוג הוא כל הפריטים כולל התמונות שלהם, שמות, מק"טים, יחידות וקטגוריות. ספירות והזמנות לא נשלחות ולא נמחקות. שחזור לברירת מחדל מחזיר את הקטלוג המקורי של האפליקציה.' : 'The catalog is all items including their photos, names, SKUs, units and categories. Counts and orders are never sent or deleted. Restore default returns the app\'s original catalog.'}</p>
       <p class="hint">${esc(t('backup_hint'))}</p>
       <div class="btnrow wrap"><button class="btn" id="expcat">${ic('table', 18)} ${esc(t('export_catalog'))}</button>${worker ? '' : `<button class="btn" id="imp">${ic('upload', 18)} ${esc(t('import_files'))}</button>`}<button class="btn" id="hist">${ic('history', 18)} ${esc(t('history'))}</button></div></section>
     <section class="card sec"><h2>${ic('refresh', 20)} ${esc(t('app'))}</h2>
       <p>${esc(t('version'))}: <b class="mono">${APP_VERSION}</b> <span id="updMsg" class="hint"></span></p>
-      <div class="btnrow wrap"><button class="btn primary" id="upd">${ic('refresh', 18)} ${esc(t('check_update'))}</button><button class="btn" id="rc">${esc(t('reset_cache'))}</button></div>
+      <div class="btnrow wrap"><button class="btn primary" id="upd">${ic('refresh', 18)} ${esc(t('check_update'))}</button><button class="btn" id="rc">${esc(t('reset_cache'))}</button><button class="btn" id="instApp">${ic('download', 18)} ${esc(c.lang === 'he' ? 'התקן כאפליקציה' : 'Install as app')}</button></div>
       <p class="hint">${esc(t('update_safe'))}</p></section></div>`;
   const $ = s => root.querySelector(s);
   $('#lang').onclick = async e => { const b = e.target.closest('[data-l]'); if (b) { await setLang(b.dataset.l); } };
@@ -54,6 +55,12 @@ export function render(root, { rerender }) {
   };
   const stamped = async () => { const b = await backupAll(); return new Blob([JSON.stringify(b)], { type: 'application/json' }); };
   $('#bk').onclick = async () => { download(await stamped(), `backup_${stamp()}.json`); await log('backup', 'download'); toast(t('downloaded')); rerender(); };
+  $('#updSend').onclick = async () => {
+    const he = S.cfg.lang === 'he', n = pendingUpdates().length; if (!n) { toast(he ? 'אין עדכונים חדשים לשליחה' : 'No new updates to send'); return; }
+    const items = pendingUpdates(), r = await shareOrDownload(await exportUpdatesBlob(items), `updates_${safeName(S.cfg.worker || 'worker')}_${stamp()}.json`, he ? 'עדכוני קטלוג' : 'Catalog updates');
+    if (r === 'cancel') return; await markUpdatesSent(items); await log('updates', `sent ${n}`); if (r === 'downloaded') toast(t('downloaded')); else toast(he ? '✓ העדכונים נשלחו' : '✓ Updates sent'); rerender();
+  };
+  $('#updLog').onclick = updatesLog;
   $('#bks').onclick = async () => { await shareOrDownload(await stamped(), `backup_${stamp()}.json`, t('backup_full')); await log('backup', 'share'); rerender(); };
   const rs = $('#rs'); if (rs) { rs.onclick = () => $('#rsf').click(); $('#rsf').onchange = async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -78,6 +85,14 @@ export function render(root, { rerender }) {
     const msg = $('#updMsg'); msg.textContent = t('checking'); const r = await checkForUpdate();
     msg.textContent = r.status === 'ready' ? t('update_ready') : r.status === 'latest' ? t('up_to_date') : r.status === 'offline' ? t('offline') : t('error');
     if (r.status === 'ready' && await confirmDlg(t('update_now_q'), { ok: t('update_now') })) applyUpdate();
+  };
+  $('#instApp').onclick = async () => {
+    const he = S.cfg.lang === 'he';
+    if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) return toast(he ? 'האפליקציה כבר מותקנת במכשיר הזה' : 'The app is already installed on this device');
+    const ev = window.__pwaInstall; if (ev) { ev.prompt(); await ev.userChoice.catch(() => {}); window.__pwaInstall = null; return; }
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    alertDlg(ios ? (he ? 'באייפון: פתח את הקישור ב-Safari, לחץ על כפתור השיתוף (ריבוע עם חץ) ובחר "הוסף למסך הבית".' : 'iPhone: open the link in Safari, tap the Share button (square with an arrow) and choose "Add to Home Screen".')
+      : (he ? 'באנדרואיד: בתפריט הדפדפן (שלוש הנקודות ⋮) בחר "התקנת אפליקציה" או "הוסף למסך הבית". אם האפשרות לא מופיעה, פתח את הקישור ב-Chrome.' : 'Android: in the browser menu (⋮) choose "Install app" or "Add to Home screen". If it is missing, open the link in Chrome.'));
   };
   $('#rc').onclick = async () => { if (await confirmDlg(t('reset_cache_q'), { ok: t('ok') })) { await resetAppCache(); location.reload(); } };
 }
@@ -109,6 +124,17 @@ export function synonymsManager() {
     m.$('[data-add]').onclick = async () => { S.groups.push({ id: uid('g'), words: [] }); await saveList('groups'); draw(); m.$$('[data-w]').pop().focus(); };
   };
   const m = openModal({ title: t('manage_synonyms'), wide: true, content: '' }); draw();
+}
+// log of every "send catalog updates": date, how many items, and a button to send the same updates again (to anyone)
+function updatesLog() {
+  const he = S.cfg.lang === 'he', log = S.cfg.updLog || [];
+  const m = openModal({ title: he ? 'יומן שליחות' : 'Send log', wide: true, content: `<p class="hint">${esc(he ? 'כל שליחה של עדכוני קטלוג נשמרת כאן. "שלח שוב" שולח אותם מחדש, גם למישהו אחר, עם הגרסה העדכנית של אותם פריטים.' : 'Every catalog-updates send is kept here. "Send again" sends the same items again, also to someone else, with their current version.')}</p><div class="list">${log.map((e, i) => `<div class="lrow"><span class="grow"><b>${esc(fmtDateTime(e.ts, S.cfg.lang))}</b> · ${e.n} ${esc(he ? 'פריטים' : 'items')}<br><small>${esc((e.names || []).join(', '))}${e.n > 3 ? '…' : ''}</small></span><button class="btn sm" data-re="${i}">${ic('share', 14)} ${esc(he ? 'שלח שוב' : 'Send again')}</button></div>`).join('') || `<p class="hint">${esc(he ? 'עדיין לא נשלחו עדכונים' : 'Nothing sent yet')}</p>`}</div>` });
+  m.$$('[data-re]').forEach(b => b.onclick = async () => {
+    const e = log[+b.dataset.re], items = (e.ids || []).map(id => S.byId.get(id)).filter(Boolean);
+    if (!items.length) return toast(he ? 'הפריטים האלה כבר לא קיימים' : 'Those items no longer exist');
+    const r = await shareOrDownload(await exportUpdatesBlob(items), `updates_${safeName(S.cfg.worker || 'worker')}_${stamp()}.json`, he ? 'עדכוני קטלוג' : 'Catalog updates');
+    if (r === 'downloaded') toast(t('downloaded')); else if (r !== 'cancel') toast(he ? '✓ נשלח שוב' : '✓ Sent again');
+  });
 }
 function historyView() {
   const icon = { 'item+': '＋', 'item~': '✎', 'item-': '✕' };
