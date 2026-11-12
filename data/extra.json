@@ -124,5 +124,13 @@
   "sh_50507000092222": "data/img/u_sh_50507000092222.webp",
   "sh_50507000092211": "data/img/u_sh_50507000092211.webp",
   "sh_50507000041001": "data/img/u_sh_50507000041001.webp"
- }
+ },
+ "cats": [
+  {
+   "id": "c_etools",
+   "he": "כלים חשמליים",
+   "en": "Power tools",
+   "tr": "KLEI CHASHMAL"
+  }
+ ]
 }

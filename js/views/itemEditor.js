@@ -20,10 +20,11 @@ export function editItem(item, { isNew = false, onDone } = {}) {
         <label class="fld"><span>${esc(t('name_en'))}</span><div class="withbtn"><input data-f="en" dir="ltr" value="${esc(d.en)}" autocomplete="off"><button class="icon-btn" type="button" data-wand="en" title="${esc(t('suggest'))}">${ic('wand', 18)}</button></div></label>
         <label class="fld"><span>${esc(t('name_tr'))}</span><div class="withbtn"><input data-f="tr" dir="ltr" value="${esc(d.tr)}" autocomplete="off" style="text-transform:uppercase"><button class="icon-btn" type="button" data-wand="tr" title="${esc(t('suggest'))}">${ic('wand', 18)}</button></div></label>
         <div class="two"><label class="fld"><span>${esc(t('sku'))}</span><input data-f="sku" dir="ltr" inputmode="text" value="${esc(d.sku)}" placeholder="${esc(t('sku_ph'))}" autocomplete="off"></label>
-        <label class="fld"><span>${esc(t('emergency'))}</span><input data-f="emergency" dir="ltr" inputmode="decimal" value="${d.emergency ?? ''}" autocomplete="off"><small class="hint">${esc(S.cfg.lang === 'he' ? 'אופציונלי. הכמות שמתחתיה הפריט נחשב חסר: בספירה הוא מסומן באדום ואפשר לסנן "מתחת למינימום", ובכפתור "צור הזמנה מהספירה" יוזמן ההפרש עד המינימום. ריק = הפריט לא משתתף בזה.' : 'Optional. Below this quantity the item counts as short: it is marked red in counts, can be filtered, and "Create order from count" orders the difference up to this level. Empty = not used.')}</small></label></div>
+        <label class="fld"><span>${esc(t('emergency'))}</span><input data-f="emergency" dir="ltr" inputmode="decimal" value="${d.emergency ?? ''}" autocomplete="off"><small class="hint">${esc(S.cfg.lang === 'he' ? 'אופציונלי. הכמות שמתחתיה הפריט נחשב חסר: בספירה הוא מסומן באדום ואפשר לסנן "מתחת למינימום". ריק = הפריט לא משתתף בזה.' : 'Optional. Below this quantity the item counts as short: it is marked red in counts, can be filtered. Empty = not used.')}</small></label></div>
         <div class="two"><label class="fld"><span>${esc(t('category'))}</span><select data-f="cat">${opt(S.cats, d.cat)}</select></label>
         <label class="fld"><span>${esc(t('unit'))}</span><select data-f="unit">${opt(S.units, d.unit)}</select></label></div>
         <div class="fld"><span>${esc(t('synonyms_item'))}</span><div class="chips" data-chips></div><input data-syn placeholder="${esc(t('syn_ph'))}"></div>
+        <div class="fld" data-msdbox hidden><span>${esc(S.cfg.lang === 'he' ? 'מס"ד של הכלים (אפשר להוסיף כמה)' : 'Tool numbers (MSD) – add as many as you have')}</span><div data-msdlist></div><button class="btn sm" type="button" data-msdadd>+ ${esc(S.cfg.lang === 'he' ? 'הוסף מס"ד' : 'Add MSD')}</button></div>
         <label class="fld"><span>${esc(t('note'))}</span><input data-f="note" value="${esc(d.note || '')}"></label>
       </div></div>`,
     actions: `${isNew ? '' : `<button class="btn danger-o" data-del>${ic('trash', 16)} ${esc(t('delete'))}</button>`}<span class="grow"></span><button class="btn" data-no>${esc(t('cancel'))}</button><button class="btn primary" data-save>${esc(t('save'))}</button>`
@@ -33,6 +34,15 @@ export function editItem(item, { isNew = false, onDone } = {}) {
   drawChips();
   const addSyn = () => { const i = m.$('[data-syn]'); i.value.split(/[,،;\n]/).map(s => s.trim()).filter(Boolean).forEach(s => { if (!d.syn.includes(s)) d.syn.push(s); }); i.value = ''; drawChips(); };
   m.$('[data-syn]').onkeydown = e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addSyn(); } }; m.$('[data-syn]').onblur = addSyn;
+  d.msd = [...(d.msd || [])];
+  const drawMsd = () => {
+    m.$('[data-msdbox]').hidden = F('cat').value !== 'c_etools';
+    m.$('[data-msdlist]').innerHTML = d.msd.map((v, i) => `<div class="withbtn" style="margin-bottom:6px"><input data-msd="${i}" dir="ltr" inputmode="numeric" value="${esc(v)}" autocomplete="off"><button class="icon-btn" type="button" data-msdrm="${i}">×</button></div>`).join('');
+    m.$$('[data-msd]').forEach(x => x.oninput = () => { d.msd[+x.dataset.msd] = x.value; });
+    m.$$('[data-msdrm]').forEach(b => b.onclick = () => { d.msd.splice(+b.dataset.msdrm, 1); drawMsd(); });
+  };
+  m.$('[data-msdadd]').onclick = () => { d.msd.push(''); drawMsd(); setTimeout(() => m.$$('[data-msd]').pop()?.focus(), 30); };
+  F('cat').onchange = drawMsd; drawMsd();
   const he = F('he'), en = F('en'), tr = F('tr');
   he.oninput = () => { if (enAuto) en.value = hasHebrew(he.value) ? suggestEn(he.value) : he.value; if (trAuto) tr.value = hasHebrew(he.value) ? suggestTr(he.value) : he.value.toUpperCase(); };
   en.oninput = () => { enAuto = false; }; tr.oninput = () => { trAuto = false; };
@@ -49,6 +59,8 @@ export function editItem(item, { isNew = false, onDone } = {}) {
   m.$('[data-save]').onclick = async () => {
     addSyn();
     const o = { ...d, he: he.value.trim(), en: en.value.trim(), tr: tr.value.trim(), sku: F('sku').value.trim(), emergency: num(F('emergency').value), cat: F('cat').value, unit: F('unit').value, note: F('note').value.trim() };
+    o.msd = [...new Set(d.msd.map(v => String(v).trim()).filter(Boolean))]; if (!o.msd.length) delete o.msd;
+    { const dupM = (o.msd || []).find(v => S.items.some(i => i.id !== o.id && (i.msd || []).includes(v))); if (dupM && !(await confirmDlg(S.cfg.lang === 'he' ? `מס"ד ${dupM} כבר קיים בכלי אחר. לשמור בכל זאת?` : `MSD ${dupM} already exists on another tool. Save anyway?`))) return; }
     if (!o.he && !o.en) { he.focus(); he.classList.add('err'); return; }
     if (o.sku) { const dup = S.items.find(i => i.sku === o.sku && i.id !== o.id); if (dup && !(await confirmDlg(t('dup_sku', { n: dup.he })))) return; }
     if (pending) await setImage(o, pending); else if (removeImg) await removeImage(o);

@@ -94,3 +94,15 @@ main{padding:10px 12px 24px;max-width:1280px;margin:0 auto}.page.narrow{max-widt
 .brand .bt{display:flex;flex-direction:column;line-height:1.15;min-width:0}.brand .credit{font-size:10px;font-weight:500;color:var(--muted);opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
 body[data-route=doc] .brand .credit{display:none}
 @media(max-width:420px){.brand .bt b{display:none}.brand .credit{max-width:30vw}}
+
+/* v1.6.3: never clip the last filter chip; slightly larger UI on computer screens */
+.chips-row{padding-inline-end:10px}
+@media(min-width:900px){
+  .chips-row{flex-wrap:wrap;overflow:visible}
+  body{font-size:16.5px}
+  .pill{font-size:15px;padding:8px 16px}
+  .btn{font-size:15.5px;min-height:44px;padding:10px 17px}
+  .icon-btn{width:44px;height:44px}
+  input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea{font-size:16px}
+  .n1{font-size:17.5px}.n2{font-size:14.5px}.tag{font-size:13px}.ptitle{font-size:22px}.nav a{font-size:12.5px}.brand{font-size:17px}.hint{font-size:14px}
+}

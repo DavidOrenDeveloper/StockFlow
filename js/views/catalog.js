@@ -24,7 +24,7 @@ export function render(root) {
     return `<div class="card item ${on ? 'sel' : ''}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}" aria-label="${esc(t('zoom'))}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 26)}${u ? `<i>${ic('zoom', 14)}</i>` : ''}</button>
       <div class="info"><div class="n1">${bidi(nm(it))}</div>${names2(it).map(n => `<div class="n2">${esc(n)}</div>`).join('')}
-        <div class="tags">${it.sku ? `<span class="tag mono">${esc(it.sku)}</span>` : `<span class="tag ghost">${esc(t('no_sku'))}</span>`}<span class="tag">${esc(nm(unitOf(it.unit)))}</span>${it.emergency != null ? `<span class="tag warn">${esc(t('emergency'))} ${it.emergency}</span>` : ''}${badge}</div></div>
+        <div class="tags">${it.sku ? `<span class="tag mono">${esc(it.sku)}</span>` : `<span class="tag ghost">${esc(t('no_sku'))}</span>`}<span class="tag">${esc(nm(unitOf(it.unit)))}</span>${it.emergency != null ? `<span class="tag warn">${esc(t('emergency'))} ${it.emergency}</span>` : ''}${(it.msd || []).length ? `<span class="tag mono">${S.cfg.lang === 'he' ? 'מס״ד' : 'MSD'}: ${esc(it.msd.join(', '))}</span>` : ''}${badge}</div></div>
       ${selMode ? `<span class="checkmark">${on ? ic('check', 18) : ''}</span>` : (worker() ? '' : `<button class="icon-btn" data-edit="${it.id}" aria-label="${esc(t('edit'))}">${ic('edit', 18)}</button>`)}</div>`;
   }
   const badgeFor = r => r.by === 'sku' ? `<span class="tag b-sku">${esc(t('sku'))}</span>` : r.viaSyn || r.by === 'syn' ? `<span class="tag b-syn">${esc(t('synonym'))}</span>` : '';

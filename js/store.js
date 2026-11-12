@@ -27,7 +27,7 @@ export const siteOf = id => S.sites.find(s => s.id === id);
 function reindex() {
   S.items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   S.byId = new Map(S.items.map(i => [i.id, i]));
-  S.index = buildIndex(S.items, it => ({ he: it.he, en: it.en, tr: it.tr || suggestTr(it.he) }));
+  S.index = buildIndex(S.items, it => ({ he: it.he, en: it.en, tr: (it.tr || suggestTr(it.he)) + ((it.msd || []).length ? ' ' + it.msd.join(' ') : '') }));
 }
 export function runSearch(q) { return search(S.index, q, { groups: S.groups, synOn: S.cfg.synOn, fuzzy: S.cfg.fuzzy }); }
 
@@ -86,15 +86,17 @@ async function applyShapirImport() {
 // One-time per device: the additions made by the owner after the first release (new items + their photos, corrected names/SKUs, photos for some Shapir items).
 // Never overwrites anything the user changed on this device: a field is replaced only if it still has the old default value.
 async function applyExtra() {
-  if (S.cfg.extra162) return;
+  if (S.cfg.extra163) return;
   try {
     const j = await (await fetch('data/extra.json', { cache: 'no-cache' })).json(), now = new Date().toISOString(), ch = [];
+    let catsChanged = false; for (const c of j.cats || []) if (!S.cats.some(x => x.id === c.id)) { S.cats.push({ ...c }); catsChanged = true; }
+    if (catsChanged) await db.kvSet('cats', S.cats);
     let order = S.items.reduce((m, i) => Math.max(m, i.order || 0), 0);
     for (const it of j.items || []) if (!S.byId.has(it.id) && !(it.sku && S.items.some(x => String(x.sku || '').trim() === it.sku))) { const n = { ...it, order: ++order, imgId: null, createdAt: now, updatedAt: now }; ch.push(n); S.items.push(n); }
     for (const [id, p] of Object.entries(j.patches || {})) { const it = S.byId.get(id); if (!it) continue; let hit = false; for (const [k, [from, to]] of Object.entries(p)) if ((it[k] || '') === from) { it[k] = to; hit = true; } if (hit) { it.updatedAt = now; ch.push(it); } }
     for (const [id, url] of Object.entries(j.imgs || {})) { const it = S.byId.get(id); if (it && !it.imgId && !it.imgUrl) { it.imgUrl = url; it.updatedAt = now; ch.push(it); } }
     if (ch.length) { await db.putMany('items', [...new Set(ch)]); reindex(); await log('catalog', `extra ${ch.length}`); }
-    S.cfg.extra162 = true; await db.kvSet('cfg', S.cfg);
+    S.cfg.extra163 = true; await db.kvSet('cfg', S.cfg);
   } catch (e) { /* offline: retry next start */ }
 }
 // Removes catalog items listed in data/remove.json (moving quantities already entered in documents to the replacement item).
@@ -216,7 +218,7 @@ async function replaceCatalog({ items, images, cats, units, groups, sites, reimp
   const uni = (cur, base) => [...base, ...cur.filter(x => !base.some(b => b.id === x.id))];
   await db.kvSet('cats', uni(S.cats, cats)); await db.kvSet('units', uni(S.units, units)); await db.kvSet('groups', uni(S.groups, groups));
   await db.kvSet('sites', [...S.sites, ...sites.filter(x => !S.sites.some(c => c.id === x.id))]);
-  S.cfg.unitFix140 = true; S.cfg.extra162 = true; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
+  S.cfg.unitFix140 = true; S.cfg.extra163 = true; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
   await init(); emit();
 }
 export async function importCatalog(b) {

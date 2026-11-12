@@ -30,8 +30,7 @@ export function render(root, { id }) {
     <div class="chips-row" id="fl"></div><div class="chips-row" id="cats"></div>
     <div id="list"></div>
     <div class="footbar slim"><button class="btn primary" id="saveBtn">${ic('check', 18)} <span>${he_ ? 'שמור וצא' : 'Save & exit'}</span></button>
-      <button class="btn" id="exp">${ic('download', 18)} <span>${esc(t('export'))}</span></button>
-      ${isCount ? `<button class="btn" id="mkOrder">${ic('cart', 18)} <span>${he_ ? 'צור הזמנה' : 'Make order'}</span></button>` : ''}</div></div>`;
+      <button class="btn" id="exp">${ic('download', 18)} <span>${esc(t('export'))}</span></button></div></div>`;
   const $ = s => root.querySelector(s);
   // meta bindings
   $$('[data-m]').forEach(el => { el.value = doc[el.dataset.m] ?? ''; el.onchange = async () => { if (el.dataset.m === 'site' && el.value === '__new') { const n = await promptDlg(he_ ? 'שם האתר / המיקום' : 'Site / location name', ''); const id = n && await addSite(n); if (id) { el.insertAdjacentHTML('afterbegin', `<option value="${id}">${esc(n)}</option>`); el.value = id; } else { el.value = doc.site; return; } } doc[el.dataset.m] = el.value; if (el.dataset.m === 'status') await log('status', el.value, doc.id); await persist(); head(); }; });
@@ -135,8 +134,6 @@ export function render(root, { id }) {
   $('#cartBtn').onclick = () => { flt = flt === 'added' ? 'all' : 'added'; filters(); draw(); progress(); };
   $('#saveBtn').onclick = async () => { await persist(); toast(t('draft_saved')); location.hash = '#/' + (isCount ? 'counts' : 'orders'); };
   $('#exp').onclick = async () => { await persist(); exportDialog({ kind: 'doc', doc }); };
-  const makeOrder = async () => { const o = orderFromCount(doc); if (!Object.keys(o.lines).length) { toast(t('no_shortage')); return; } await saveDoc(o); await log('doc+', 'order from count', o.id); location.hash = '#/doc/' + o.id; };
-  if (isCount) $('#mkOrder').onclick = makeOrder;
   const vis = () => { if (document.hidden) persist(); }; document.addEventListener('visibilitychange', vis);
   const saveUi = debounce(() => { try { localStorage.setItem(uiKey, JSON.stringify({ q, cat, flt, y: Math.round(scrollY) })); } catch (e) { /* ignore */ } }, 300);
   let restoreY = 0;
