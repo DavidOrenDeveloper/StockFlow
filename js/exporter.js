@@ -27,7 +27,7 @@ export function docLines(d, o = {}) {
   rows.sort((a, b) => catRank(a.it) - catRank(b.it) || (a.it?.order ?? 9e9) - (b.it?.order ?? 9e9));
   return rows.map(r => ({
     sku: r.it?.sku ?? r.snap?.sku ?? '', he: L3(r.it, r.snap, 'he'), en: L3(r.it, r.snap, 'en'), tr: L3(r.it, r.snap, 'tr'), cat: catName(r.it, r.snap),
-    unit: unitName(r.it, r.snap), qty: r.qty, emergency: r.it?.emergency ?? r.snap?.emergency ?? null, img: imgOf(r.it), note: d.notes?.[r.id] || ''
+    unit: unitName(r.it, r.snap), qty: r.qty, emergency: r.it?.emergency ?? r.snap?.emergency ?? null, img: imgOf(r.it), note: [d.notes?.[r.id] || '', (d.units?.[r.id] || []).map(u => u.msd).filter(Boolean).join(', ') ? `${S.cfg.lang === 'he' ? 'מס"ד' : 'MSD'}: ${(d.units[r.id] || []).map(u => u.msd).filter(Boolean).join(', ')}` : ''].filter(Boolean).join(' · ')
   }));
 }
 const docMeta = d => [

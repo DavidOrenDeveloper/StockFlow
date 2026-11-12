@@ -108,3 +108,12 @@ body[data-route=doc] .brand .credit{display:none}
 }
 
 .btn.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
+
+/* v1.6.7 */
+@media(min-width:641px){.ie{grid-template-columns:172px minmax(0,1fr)}.ie-img{min-width:0}.ie-img .btnrow{flex-direction:column;align-items:stretch;width:100%}.ie-img .btnrow .btn{justify-content:center;width:100%}}
+html{overflow-x:hidden}body{overflow-x:clip;max-width:100%}
+.updbox{background:var(--primary-soft);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:16px}.updbox .hint{margin-top:0}
+.hbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:start;margin-top:8px}.hbody{margin:4px 2px 8px;padding:10px 12px;border-radius:12px;background:var(--primary-soft);line-height:1.55;font-size:14px}
+.qmark{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;font-weight:700;color:var(--primary);cursor:pointer}
+.mail{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}.mail b{direction:ltr;unicode-bidi:isolate;user-select:all}
+.urow{display:grid;grid-template-columns:56px 1fr auto;gap:8px;align-items:center;margin-bottom:8px}.urow .uimg{width:56px;height:56px;border-radius:10px;border:1px dashed var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;padding:0}.urow .uimg img{width:100%;height:100%;object-fit:cover}

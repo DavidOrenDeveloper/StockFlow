@@ -27,7 +27,7 @@ export const siteOf = id => S.sites.find(s => s.id === id);
 function reindex() {
   S.items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   S.byId = new Map(S.items.map(i => [i.id, i]));
-  S.index = buildIndex(S.items, it => ({ he: it.he, en: it.en, tr: (it.tr || suggestTr(it.he)) + ((it.msd || []).length ? ' ' + it.msd.join(' ') : '') }));
+  S.index = buildIndex(S.items, it => ({ he: it.he, en: it.en, tr: it.tr || suggestTr(it.he) }));
 }
 export function runSearch(q) { return search(S.index, q, { groups: S.groups, synOn: S.cfg.synOn, fuzzy: S.cfg.fuzzy }); }
 
@@ -256,15 +256,17 @@ export async function backupAll() {
   S.cfg.lastBackup = new Date().toISOString(); await db.kvSet('cfg', S.cfg); kv.cfg = S.cfg;
   return { app: APP_ID, kind: 'backup', schema: 1, appVersion: APP_VERSION, createdAt: new Date().toISOString(), kv, items: S.items, docs: S.docs, log: S.log, images };
 }
-export async function restoreAll(b, mode = 'replace') {
+export async function restoreAll(b, mode = 'replace', policy = 'newer') {   // policy (merge only): 'newer' = newer update wins, 'mine' = keep what I have, 'file' = file wins
   if (!b || b.app !== APP_ID || b.kind !== 'backup') throw new Error('not-backup');
   if (mode === 'replace') for (const s of db.stores) await db.clear(s);
   const newer = (a, c) => !a || (c.updatedAt || '') >= (a.updatedAt || '');
-  const keep = []; // merge: only take newer records
-  for (const it of b.items) if (mode === 'replace' || newer(S.byId.get(it.id), it)) keep.push(it);
+  const take = (cur, rec) => mode === 'replace' || !cur || (policy === 'file' ? true : policy === 'mine' ? false : newer(cur, rec));
+  const keep = [];
+  for (const it of b.items) if (take(S.byId.get(it.id), it)) keep.push(it);
   await db.putMany('items', keep);
-  const dk = b.docs.filter(d => mode === 'replace' || newer(S.docs.find(x => x.id === d.id), d)); await db.putMany('docs', dk);
-  for (const im of b.images) if (mode === 'replace' || !S.img.has(im.id)) await db.put('images', { id: im.id, blob: await dataURLToBlob(im.data) });
+  const dk = b.docs.filter(d => take(S.docs.find(x => x.id === d.id), d)); await db.putMany('docs', dk);
+  const keepImg = new Set(keep.map(i => i.imgId).filter(Boolean));
+  for (const im of b.images) if (mode === 'replace' || !S.img.has(im.id) || (keepImg.has(im.id) && policy !== 'mine')) await db.put('images', { id: im.id, blob: await dataURLToBlob(im.data) });
   if (mode === 'replace') { await db.putMany('log', b.log || []); for (const [k, v] of Object.entries(b.kv)) await db.kvSet(k, v); }
   else { for (const n of ['cats', 'units', 'sites', 'folders', 'groups']) { const cur = S[n], add = (b.kv[n] || []).filter(x => !cur.find(c => c.id === x.id)); if (add.length) await db.kvSet(n, [...cur, ...add]); } }
   await log('restore', mode);

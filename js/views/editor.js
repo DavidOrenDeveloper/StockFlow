@@ -1,6 +1,8 @@
 // Stock-count / order editor. Empty = not checked yet; 0 = checked, none. Auto-saves as draft after every change.
 import { S, nm, catOf, unitOf, imgOf, runSearch, saveDoc, setStatus, siteOf, DOC_STATUS, lastCount, orderFromCount, deleteDoc, log, newItem, addSite } from '../store.js';
 import { t } from '../i18n.js';
+import { openModal as openModalU } from '../modal.js';
+import { resizeImage as resizeImageU, blobToDataURL as blobToDataURLU } from '../util.js';
 import { esc, debounce, num, fmtQty, fmtDateTime, toast, bidi } from '../util.js';
 import { ic } from '../icons.js';
 import { zoomImg, confirmDlg, menu, promptDlg } from '../modal.js';
@@ -80,9 +82,37 @@ export function render(root, { id }) {
     return `<div class="row ${v == null ? '' : v === 0 ? 'zero' : 'has'} ${low ? 'low' : ''}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 24)}</button>
       <div class="info"><div class="n1">${bidi(nm(it))} <button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}">${ic('edit', 14)}</button></div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>${isCount && it.emergency != null ? `<div class="lowtag">${S.cfg.lang === 'he' ? 'מתחת למינימום' : 'Below minimum'} (${fmtQty(it.emergency)})</div>` : ''}
-        ${sug ? `<button class="sug" data-sug="${sug}">${esc(t('fill_short', { n: fmtQty(sug) }))}</button>` : ''}${hideBtn(it)} <button class="btn sm lnkb" data-note type="button">${note ? (he_ ? 'ערוך הערה' : 'Edit note') : (he_ ? '+ הערה' : '+ Note')}</button></div>
+        ${sug ? `<button class="sug" data-sug="${sug}">${esc(t('fill_short', { n: fmtQty(sug) }))}</button>` : ''}${hideBtn(it)} <button class="btn sm lnkb" data-note type="button">${note ? (he_ ? 'ערוך הערה' : 'Edit note') : (he_ ? '+ הערה' : '+ Note')}</button>${isCount && it.cat === 'c_etools' ? ` <button class="btn sm lnkb" data-msd type="button">${he_ ? 'מס"דים' : 'MSD'}${(doc.units?.[it.id] || []).length ? ` (${doc.units[it.id].length})` : ''}</button>` : ''}</div>
       <div class="qty"><button data-dec aria-label="-">${ic('minus', 18)}</button><input inputmode="decimal" autocomplete="off" value="${v == null ? '' : fmtQty(v)}" placeholder="${isCount ? '—' : '0'}" aria-label="${esc(nm(it))}"><button data-inc aria-label="+">${ic('plus', 18)}</button>${isCount ? `<button class="clr" data-clr style="visibility:${v != null ? 'visible' : 'hidden'}" title="${esc(t('uncount'))}">${ic('x', 14)}</button>` : ''}</div>${note ? noteRow(note) : ''}</div>`;
   }
+  // power tools: one row per physical tool (its own MSD number + photo). Stored ONLY inside this count (never in the catalog), and can be copied from the last count of the same site.
+  function unitsDlg(id) {
+    const it = S.byId.get(id); if (!it) return;
+    let us = structuredClone(doc.units?.[id] || []), pickFor = -1;
+    const prevU = lastCount(doc.site, doc.id)?.units?.[id] || [];
+    const m = openModalU({ title: `${he_ ? 'מס\"דים' : 'MSD numbers'} · ${nm(it)}`, wide: true, content: '<div data-ul></div>',
+      actions: `<button class="btn" data-no>${esc(t('cancel'))}</button><span class="grow"></span><button class="btn primary" data-ok>${esc(t('save'))}</button>` });
+    const draw = () => {
+      m.$('[data-ul]').innerHTML = `<p class="hint">${esc(he_ ? 'שורה לכל כלי: מספר המס"ד החרוט עליו ותמונה (אופציונלי). נשמר רק בספירה הזו ולא בקטלוג, כך שמחסנים ואתרים שונים לא מתערבבים.' : 'One row per tool: the MSD number engraved on it and an optional photo. Saved only in this count (not in the catalog), so different warehouses and sites never mix.')}</p>
+        ${us.map((u, i) => `<div class="urow"><button class="uimg" type="button" data-img="${i}">${u.img ? `<img src="${u.img}" alt="">` : ic('image', 22)}</button><input data-n="${i}" dir="ltr" inputmode="numeric" placeholder="${esc(he_ ? 'מס"ד' : 'MSD no.')}" value="${esc(u.msd || '')}" autocomplete="off"><button class="icon-btn" type="button" data-rm="${i}">${ic('trash', 18)}</button></div>`).join('')}
+        <div class="btnrow wrap"><button class="btn" type="button" data-add>${ic('plus', 16)} ${esc(he_ ? 'הוסף כלי' : 'Add tool')}</button>${prevU.length ? `<button class="btn" type="button" data-prev>${esc(he_ ? `העתק מהספירה האחרונה באתר זה (${prevU.length})` : `Copy from the last count at this site (${prevU.length})`)}</button>` : ''}</div>
+        <input type="file" accept="image/*" hidden data-file>`;
+      m.$$('[data-n]').forEach(x => x.oninput = () => { us[+x.dataset.n].msd = x.value; });
+      m.$$('[data-rm]').forEach(b => b.onclick = () => { us.splice(+b.dataset.rm, 1); draw(); });
+      m.$$('[data-img]').forEach(b => b.onclick = () => { pickFor = +b.dataset.img; m.$('[data-file]').click(); });
+      m.$('[data-file]').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f || pickFor < 0 || !us[pickFor]) return; us[pickFor].img = await blobToDataURLU(await resizeImageU(f, 480)); draw(); };
+      m.$('[data-add]').onclick = () => { us.push({ msd: '', img: '' }); draw(); setTimeout(() => m.$$('[data-n]').pop()?.focus(), 30); };
+      const pv = m.$('[data-prev]'); if (pv) pv.onclick = () => { const have = new Set(us.map(u => u.msd)); prevU.forEach(u => { if (!u.msd || !have.has(u.msd)) us.push(structuredClone(u)); }); draw(); };
+    };
+    draw();
+    m.$('[data-no]').onclick = () => m.close();
+    m.$('[data-ok]').onclick = () => {
+      us = us.filter(u => String(u.msd || '').trim() || u.img).map(u => ({ ...u, msd: String(u.msd || '').trim() }));
+      if (us.length) (doc.units ||= {})[id] = us; else if (doc.units) { delete doc.units[id]; if (!Object.keys(doc.units).length) delete doc.units; }
+      m.close(); persist(); draw0(); const row = root.querySelector(`.row[data-id="${id}"]`); if (row && us.length && (doc.lines[id] ?? 0) < us.length) setQty(row, us.length);
+    };
+  }
+  const draw0 = () => draw();
   function draw() {
     let html = '';
     if (q.trim()) {
@@ -115,6 +145,7 @@ export function render(root, { id }) {
     if (e.target.closest('[data-hide]')) push({ id, h: false }); if (e.target.closest('[data-unhide]')) push({ id, h: true });
     if (e.target.closest('[data-zoom]')) { const it = S.byId.get(id); zoomImg(imgOf(it), nm(it)); }
     else if (e.target.closest('[data-edit]')) { editItem(S.byId.get(id), { onDone: () => { filters(); draw(); progress(); } }); }
+    else if (e.target.closest('[data-msd]')) unitsDlg(id);
     else if (e.target.closest('[data-note]')) { let ni = row.querySelector('[data-note-in]'); if (!ni) { row.insertAdjacentHTML('beforeend', noteRow('')); ni = row.querySelector('[data-note-in]'); } ni.focus(); }
     else if (e.target.closest('[data-inc]')) setQty(row, (cur ?? 0) + 1);
     else if (e.target.closest('[data-dec]')) setQty(row, Math.max(0, (cur ?? 1) - 1));

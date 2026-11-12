@@ -31,7 +31,7 @@ function route() {
   document.body.dataset.route = r; document.getElementById('skuBtn')?.classList.toggle('on', r === 'sku');                       // lets CSS hide the developer credit inside a document (editor) page
   const key = r === 'doc' ? (S.docs.find(d => d.id === arg)?.type === 'order' ? 'orders' : 'counts') : r;
   document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.dataset.n === key));
-  const rerender = () => route();
+  const rerender = () => { const y = window.scrollY, vy = document.getElementById('view').scrollTop; route(); window.scrollTo(0, y); document.getElementById('view').scrollTop = vy; };   // buttons must not jump to the top
   if (r === 'counts') cleanup = docs.render(view, { type: 'count' });
   else if (r === 'orders') cleanup = docs.render(view, { type: 'order' });
   else if (r === 'files') cleanup = docs.render(view, { type: 'all' });

@@ -17,8 +17,12 @@ export function download(blob, name) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
 }
 export async function shareOrDownload(blob, name, title) {
-  const file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
-  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: title || name }); return 'shared'; } } catch (e) { if (e.name === 'AbortError') return 'cancel'; }
+  const tryShare = async (b, n) => { const file = new File([b], n, { type: b.type || 'application/octet-stream' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: title || n }); return true; } return false; };
+  try {
+    if (await tryShare(blob, name)) return 'shared';
+    // some phones refuse to share ".json" files: retry as a text file (same content, name ends with .json.txt)
+    if (/json/.test(blob.type) && await tryShare(new Blob([blob], { type: 'text/plain' }), name.replace(/\.json$/i, '.json.txt'))) return 'shared';
+  } catch (e) { if (e.name === 'AbortError') return 'cancel'; }
   download(blob, name); return 'downloaded';
 }
 export const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
