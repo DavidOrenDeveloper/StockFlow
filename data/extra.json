@@ -1,0 +1,128 @@
+{
+ "v": 1,
+ "items": [
+  {
+   "id": "imwc2oxa1tiz42",
+   "sku": "5050915003",
+   "he": "שקע ללוח CEE 3×16",
+   "en": "Socket to electricity bord CEE 3×16",
+   "tr": "SHEKA LaLuhaCH CEE 3×16",
+   "cat": "c_acc",
+   "unit": "u_unit",
+   "emergency": null,
+   "syn": [],
+   "note": "",
+   "order": 1280,
+   "imgUrl": "data/img/u_imwc2oxa1tiz42.webp"
+  },
+  {
+   "id": "imwc3o2p4zchz5",
+   "sku": "50509000015004",
+   "he": "תקע נייד CEE 3×16A",
+   "en": "Mobile Plug CEE 3×16A",
+   "tr": "TEKA NaYaD CEE 3×16A",
+   "cat": "c_acc",
+   "unit": "u_unit",
+   "emergency": null,
+   "syn": [],
+   "note": "",
+   "order": 1281,
+   "imgUrl": "data/img/u_imwc3o2p4zchz5.webp"
+  },
+  {
+   "id": "imwc3y5rna78fw",
+   "sku": "50606407",
+   "he": "מסמרים לאקדח מסמרים",
+   "en": "Nail gun nails",
+   "tr": "MaSMeRYM LAKDaCH MaSMeRYM",
+   "cat": "c_nail",
+   "unit": "u_unit",
+   "emergency": null,
+   "syn": [],
+   "note": "לבקש עבור סוג/דגם אקדח (בוש וכדומה)",
+   "order": 1282,
+   "imgUrl": "data/img/u_imwc3y5rna78fw.webp"
+  }
+ ],
+ "patches": {
+  "i139": {
+   "he": [
+    "שקע 3X16",
+    "שקע CEE 3X16"
+   ],
+   "en": [
+    "Socket 3X16",
+    "Socket CEE 3X16"
+   ],
+   "tr": [
+    "SHEKA 3X16",
+    "SHEKA CEE 3X16"
+   ],
+   "sku": [
+    "",
+    "50505003"
+   ],
+   "cat": [
+    "c_tools",
+    "c_acc"
+   ]
+  },
+  "i146": {
+   "he": [
+    "מפצל",
+    "מפצל CEE תקע 16×3 ל-3 שקעים 16×3"
+   ],
+   "en": [
+    "Splitter",
+    "Splitter CEE"
+   ],
+   "tr": [
+    "MEFATZEL",
+    "MEFATZEL CEE"
+   ],
+   "sku": [
+    "",
+    "50570047"
+   ]
+  },
+  "sh_505050316": {
+   "he": [
+    "מתאם תעשייתי CEE3X16 לתקע ישראלי",
+    "מתאם תעשייתי CEE 3X16 לתקע ישראלי"
+   ],
+   "en": [
+    "",
+    "Adapter TASHYYTY CEE 3X16 LTKA YSHRALY"
+   ],
+   "tr": [
+    "",
+    "MATEM TASHYYTY CEE 3X16 LTKA YSHRALY"
+   ]
+  },
+  "sh_50509000015022": {
+   "en": [
+    "",
+    "CEE socket 5X16"
+   ],
+   "tr": [
+    "",
+    "SHEKA CEE 5X16"
+   ]
+  },
+  "sh_50509000015052": {
+   "en": [
+    "",
+    "CEE socket 5X32"
+   ]
+  }
+ },
+ "imgs": {
+  "sh_505050316": "data/img/u_sh_505050316.webp",
+  "sh_50509000015021": "data/img/u_sh_50509000015021.webp",
+  "sh_50509000015022": "data/img/u_sh_50509000015022.webp",
+  "sh_50509000015052": "data/img/u_sh_50509000015052.webp",
+  "sh_50507000092222": "data/img/u_sh_50507000092222.webp",
+  "sh_50507000092211": "data/img/u_sh_50507000092211.webp",
+  "sh_50507000041001": "data/img/u_sh_50507000041001.webp"
+ }
+}

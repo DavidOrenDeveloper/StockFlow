@@ -3,7 +3,7 @@
 import { S, nm, siteOf } from './store.js';
 import { t, dir } from './i18n.js';
 import { docLines, docTitle, toDataUrl } from './exporter.js';
-import { fmtQty, fmtDate, safeName, download } from './util.js';
+import { fmtQty, fmtDate, safeName, download, shareOrDownload } from './util.js';
 
 const W = 1000, ROW = 104, HEAD = 190, PER = 13;
 const loadImg = async src => { if (!src) return null; try { const u = await toDataUrl(src); return await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = u; }); } catch (e) { return null; } };
@@ -60,3 +60,33 @@ export function waText(d, o = {}) {
   return `*${docTitle(d)}*${d.worker ? '\n' + d.worker : ''}\n\n` + lines.map(l => `• ${nm({ he: l.he, en: l.en, tr: l.tr })}${he && o.en && l.en ? ' / ' + l.en : ''}${he && o.tr && l.tr ? ' / ' + l.tr : ''}${l.sku ? ' | ' + t('sku') + ' ' + l.sku : ''} — *${l.qty == null ? '—' : fmtQty(l.qty)}* ${l.unit}${l.note ? ' (' + l.note + ')' : ''}`).join('\n');
 }
 export const openWhatsApp = text => window.open('https://wa.me/?text=' + encodeURIComponent(text.slice(0, 3800)), '_blank');
+
+// A real PDF file (one page per picture of the list) so it can be attached through the phone share menu (Gmail, Outlook, WhatsApp…). No library needed.
+async function pdfFromImages(blobs) {
+  const pages = [];
+  for (const b of blobs) {
+    const bm = await createImageBitmap(b), c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bm, 0, 0);
+    const jb = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9)); pages.push({ w: c.width, h: c.height, jpg: new Uint8Array(await jb.arrayBuffer()) });
+  }
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { const u = typeof x === 'string' ? enc.encode(x) : x; parts.push(u); len += u.length; };
+  const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n${body}\nendobj\n`); };
+  push('%PDF-1.4\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] /Count ${pages.length} >>`);
+  pages.forEach((p, i) => {
+    const n = 3 + i * 3, pw = 595, ph = Math.round(p.h * pw / p.w * 100) / 100, cs = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    obj(n, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 ${n + 2} 0 R >> >> /Contents ${n + 1} 0 R >>`);
+    obj(n + 1, `<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`);
+    offs[n + 2] = len; push(`${n + 2} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpg.length} >>\nstream\n`); push(p.jpg); push('\nendstream\nendobj\n');
+  });
+  const size = 3 + pages.length * 3, xref = len; let x = `xref\n0 ${size}\n0000000000 65535 f \n`;
+  for (let n = 1; n < size; n++) x += String(offs[n]).padStart(10, '0') + ' 00000 n \n';
+  push(x + `trailer\n<< /Size ${size} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+export async function sharePdf(d, o) {
+  const pdf = await pdfFromImages(await docImages(d, o));
+  return shareOrDownload(pdf, `${d.type}_${safeName(nm(siteOf(d.site), 'he'))}_${d.date}.pdf`, docTitle(d));
+}

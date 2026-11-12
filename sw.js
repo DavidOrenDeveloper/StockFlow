@@ -1,10 +1,10 @@
 /* Service worker – scoped to this folder only. Cache names are prefixed with the app id, so it never touches other apps on the same domain. */
 const APP_ID = 'stockcount-7f3a9c';
-const VERSION = '1.6.1';                       // keep equal to js/config.js APP_VERSION and version.json
+const VERSION = '1.6.2';                       // keep equal to js/config.js APP_VERSION and version.json
 const CACHE = `${APP_ID}-cache-${VERSION}`;
 const IMG_CACHE = `${APP_ID}-img-v2`;           // product images: survives app updates; bump the suffix only when image files are replaced
 const CORE = [
-  './', 'index.html', 'manifest.webmanifest', 'version.json', 'css/app.css', 'data/seed.json', 'data/shapir.json', 'data/remove.json',
+  './', 'index.html', 'manifest.webmanifest', 'version.json', 'css/app.css', 'data/seed.json', 'data/shapir.json', 'data/extra.json', 'data/remove.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
   'js/app.js', 'js/config.js', 'js/db.js', 'js/exporter.js', 'js/i18n.js', 'js/icons.js', 'js/lexicon.js', 'js/modal.js', 'js/pwa.js', 'js/search.js', 'js/store.js', 'js/util.js', 'js/waShare.js', 'js/xlsx.js',
   'js/views/catalog.js', 'js/views/docs.js', 'js/views/editor.js', 'js/views/exportDialog.js', 'js/views/itemEditor.js', 'js/views/settings.js', 'js/views/skuTools.js'

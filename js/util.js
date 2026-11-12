@@ -40,4 +40,13 @@ export function toast(msg, ms = 2400) {
 }
 
 /** HTML-safe text where every Latin / number run (e.g. "CEE 3X16", "N-1A") is isolated, so it keeps its typed order inside Hebrew text */
-export const bidi = x => String(x ?? '').split(/([A-Za-z0-9](?:[A-Za-z0-9.,:;/\\\-*×+()%#_&'"]| (?=[A-Za-z0-9(]))*)/).map((p, i) => i % 2 ? `<bdi dir="ltr">${esc(p)}</bdi>` : esc(p)).join('');
+export const bidi = x => String(x ?? '').split(/([A-Za-z0-9](?:[A-Za-z0-9.,:;/\\\-*×+()%#_&'"]| (?=[A-Za-z0-9(]))*)/).map((p, i) => {
+  if (i % 2 === 0) return esc(p);
+  // brackets must NOT end up half-inside the LTR island (that is what flipped "(" and ")"): push a trailing "(" / unmatched ")" / space back out
+  let tail = '';
+  for (;;) {
+    const c = p.slice(-1), o = (p.match(/\(/g) || []).length, cl = (p.match(/\)/g) || []).length;
+    if (c === ' ' || c === '(' || (c === ')' && cl > o)) { tail = c + tail; p = p.slice(0, -1); } else break;
+  }
+  return `<bdi dir="ltr">${esc(p)}</bdi>${esc(tail)}`;
+}).join('');

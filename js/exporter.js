@@ -2,7 +2,7 @@
 import { S, nm, catOf, unitOf, siteOf, docItems, docEnvelope, backupAll, imgOf } from './store.js';
 import { t, dir } from './i18n.js';
 import { buildXlsx } from './xlsx.js';
-import { esc, fmtDate, fmtDateTime, safeName, download, shareOrDownload, stamp, fmtQty } from './util.js';
+import { esc, fmtDate, fmtDateTime, safeName, download, shareOrDownload, stamp, fmtQty, toast } from './util.js';
 
 /** any image address (blob: / same-origin file) -> self-contained data: URL, so printing and sharing never lose a picture */
 export async function toDataUrl(src) {
@@ -78,7 +78,10 @@ export function printHtml(title, metaPairs, head, body, { rtl = dir() === 'rtl',
   document.body.appendChild(f); f.srcdoc = html;
   f.onload = () => {
     const w = f.contentWindow, imgs = [...w.document.images];
-    Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => { w.focus(); w.print(); setTimeout(() => { f.remove(); document.title = oldTitle; }, 60000); });
+    Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => {
+      let told = false; const done = () => { if (told) return; told = true; toast(S.cfg.lang === 'he' ? '✓ המסמך נוצר. אם בחרת "שמירה כ־PDF" – הקובץ נשמר במכשיר (בהורדות)' : '✓ Document created. If you chose "Save as PDF", the file is saved on your device (Downloads)', 6000); };
+      w.addEventListener('afterprint', done); window.addEventListener('afterprint', done, { once: true });
+      w.focus(); w.print(); setTimeout(() => { f.remove(); document.title = oldTitle; }, 60000); });
   };
 }
 export async function docPdf(d, o = {}) {

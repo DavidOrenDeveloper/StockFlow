@@ -52,7 +52,36 @@ const PHRASES = [
 ];
 const COLORS = new Set(['Red','Green','Blue','White','Black','Brown','Yellow','Orange','Thick']);
 const LETTERS = { 'א':'A','ב':'B','ג':'G','ד':'D','ה':'H','ו':'V','ז':'Z','ח':'CH','ט':'T','י':'Y','כ':'K','ך':'KH','ל':'L','מ':'M','ם':'M','נ':'N','ן':'N','ס':'S','ע':'A','פ':'P','ף':'F','צ':'TZ','ץ':'TZ','ק':'K','ר':'R','ש':'SH','ת':'T' };
-const spell = w => w.split('').map(c => LETTERS[c] ?? c).join('').toUpperCase();
+const plain = w => w.split('').map(c => LETTERS[c] ?? c).join('').toUpperCase();
+// Unknown word -> readable Latin letters WITH vowels (no niqqud needed): מסמרים -> MASMERYM. First consonant gets A, then E whenever 3 consonants would sit together;
+// middle ו/י read as O/I, final ה as A, endings ים/ות -> YM/OT. Always editable by the user.
+function spell(w) {
+  if (/["״]/.test(w)) return plain(w);                       // acronyms (עה"ט, מא"ז) stay letter-by-letter
+  let suf = '';
+  if (w.length > 3) { if (/ים$/.test(w)) { suf = 'YM'; w = w.slice(0, -2); } else if (/ות$/.test(w)) { suf = 'OT'; w = w.slice(0, -2); } }
+  const ch = [...w], tk = [];                                // token: {s: text, v: vowel/literal (breaks a consonant cluster)}
+  for (let i = 0; i < ch.length; i++) {
+    const c = ch[i], nx = ch[i + 1];
+    if (!/[\u05D0-\u05EA]/.test(c)) { tk.push({ s: c === "'" ? '' : c.toUpperCase(), v: true }); continue; }
+    if (nx === "'" && { 'ג': 'J', 'ז': 'ZH', 'צ': 'TCH', 'ת': 'T' }[c]) { tk.push({ s: { 'ג': 'J', 'ז': 'ZH', 'צ': 'TCH', 'ת': 'T' }[c] }); i++; continue; }
+    if (i === 0) { if (c === 'א' || c === 'ע') { tk.push({ s: 'A', v: true }); continue; } if (c === 'ו') { tk.push({ s: 'V' }); continue; } if (c === 'י') { tk.push({ s: 'Y' }); continue; } }
+    else if (c === 'ו') { if (nx === 'ו') { tk.push({ s: 'V' }); i++; } else tk.push({ s: 'O', v: true }); continue; }
+    else if (c === 'י') { tk.push({ s: 'I', v: true }); continue; }
+    else if (c === 'א' || c === 'ע') { tk.push({ s: '', v: true }); continue; }
+    else if (c === 'ה' && i === ch.length - 1 && !suf) { tk.push({ s: 'A', v: true }); continue; }
+    tk.push({ s: LETTERS[c] ?? c });
+  }
+  const n = tk.filter(x => !x.v).length; let k = 0, run = 0, out = '';
+  tk.forEach((x, i) => {
+    out += x.s;
+    if (x.v) { run = 0; return; }
+    k++; run++;
+    const nxt = tk[i + 1];
+    if (!nxt || nxt.v) return;                              // last letter, or a vowel follows anyway
+    if (k === 1) { out += 'A'; run = 0; } else if ((n === 3 && k === 2) || run >= 2) { out += 'E'; run = 0; }
+  });
+  return out + suf;
+}
 const isHeb = s => /[\u05D0-\u05EA]/.test(s);
 const tokens = s => clean(s).split(' ').filter(Boolean);
 

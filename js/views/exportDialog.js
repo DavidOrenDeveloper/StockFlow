@@ -5,7 +5,7 @@ import { ic } from '../icons.js';
 import { confirmDlg } from '../modal.js';
 import { docTitle, docLines, docXlsx, docXlsxName, docPdf, shareDocJson, skuClipboardText, catalogXlsx, catalogPdf } from '../exporter.js';
 import { S, saveDoc, log, nm, unitOf } from '../store.js';
-import { shareImages, waText, openWhatsApp } from '../waShare.js';
+import { shareImages, sharePdf, waText, openWhatsApp } from '../waShare.js';
 
 const chk = (k, label, on) => `<label class="chk"><input type="checkbox" data-o="${k}" ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 /** kind 'doc' -> {doc} ; kind 'catalog' -> {items, name} */
@@ -22,9 +22,9 @@ export function exportDialog({ kind, doc, items, name = 'catalog' }) {
     exr('pdf', chip('#E5484D', '<b style="font-size:10px">PDF</b>'), 'PDF', he ? 'להדפסה או לשמירה (תבחר שם לקובץ)' : 'Print or save (you choose the file name)') +
     exr('xlsx', chip('#1D7A46', '<b style="font-size:15px">X</b>'), 'Excel', he ? 'הורדת קובץ אקסל' : 'Download an Excel file') +
     exr('xshare', chip('#6B7280', ic('share', 18)), he ? 'שליחת Excel (מייל / אפליקציה)' : 'Send Excel (email / app)', he ? 'פותח את תפריט השיתוף של הטלפון: Gmail, Outlook ועוד — הקובץ מצורף' : 'Opens the phone share menu (Gmail, Outlook…) with the file attached') +
-    (isDoc ? exr('waimg', WA, he ? 'וואטסאפ — תמונה' : 'WhatsApp — image', he ? 'תמונה של הרשימה' : 'A picture of the list') +
+    (isDoc ? exr('pdfshare', chip('#E5484D', '<b style="font-size:10px">PDF</b>'), he ? 'שיתוף PDF (מייל / וואטסאפ / אפליקציה)' : 'Share PDF (email / WhatsApp / app)', he ? 'קובץ PDF מצורף דרך תפריט השיתוף של הטלפון' : 'A PDF file attached via the phone share menu') +
+      exr('waimg', WA, he ? 'שיתוף תמונות (וואטסאפ / מייל / אפליקציה)' : 'Share pictures (WhatsApp / email / app)', he ? 'תמונות של הרשימה מצורפות דרך תפריט השיתוף' : 'Pictures of the list via the share menu') +
       exr('watxt', WA, he ? 'וואטסאפ — טקסט' : 'WhatsApp — text', he ? 'הרשימה כהודעת טקסט' : 'The list as a text message') +
-      `<div class="exr2"><button class="exr" data-a="gmail">${chip('#EA4335', '<b style="font-size:15px">M</b>')}<span class="ext"><b>Gmail</b><small>${he ? 'טקסט הרשימה בגוף המייל' : 'List as the email body'}</small></span></button><button class="exr" data-a="outlook">${chip('#0A64C9', '<b style="font-size:15px">O</b>')}<span class="ext"><b>Outlook</b><small>${he ? 'טקסט הרשימה בגוף המייל' : 'List as the email body'}</small></span></button></div>` +
       (isCount ? '' : exr('copy', chip('#6B7280', ic('copy', 18)), he ? 'העתק לפריוריטי' : 'Copy for Priority', he ? 'מעתיק מק"ט וכמות להדבקה במערכת פריוריטי' : 'Copies SKU + quantity to paste into Priority')) +
       exr('json', chip('#3B6DF0', ic('share', 18)), he ? 'שלח למנהל (קובץ ייבוא)' : 'Send to manager (import file)', he ? 'קובץ שהמנהל פותח באפליקציה כדי לקבל את המסמך כמו שהוא — לא מיועד לקריאה' : 'A file the manager opens in the app to receive this document as is') : '') + '</div>';
   const m = openModal({ title: t('export'), content: `<div class="optgrid">${opts}</div><p class="hint">${esc(t('pdf_hint'))}</p>${btns}` });
@@ -40,20 +40,17 @@ export function exportDialog({ kind, doc, items, name = 'catalog' }) {
     const o = get(), a = b.dataset.a;
     if (a === 'preview') return showPreview(o);
     try {
-      if (isDoc && ['xlsx', 'xshare', 'pdf', 'waimg', 'watxt', 'gmail', 'outlook', 'copy'].includes(a)) {
+      if (isDoc && ['xlsx', 'xshare', 'pdf', 'pdfshare', 'waimg', 'watxt', 'copy'].includes(a)) {
         const miss = docLines(doc, { onlyQty: !isCount, onlyCounted: isCount }).filter(l => !l.sku), he = S.cfg.lang === 'he';
         if (miss.length && !(await confirmDlg((he ? `ל-${miss.length} שורות אין מק"ט: ` : `${miss.length} lines have no SKU: `) + miss.slice(0, 5).map(l => l.he || l.en).join(', ') + (miss.length > 5 ? '…' : '') + (he ? '. לשלוח בכל זאת?' : '. Send anyway?'), { ok: he ? 'שלח בכל זאת' : 'Send anyway' }))) return;
       }
-      if (a === 'xlsx') { download(isDoc ? docXlsx(doc, o) : catalogXlsx(items, o), isDoc ? docXlsxName(doc) : `${name}.xlsx`); }
+      if (a === 'xlsx') { download(isDoc ? docXlsx(doc, o) : catalogXlsx(items, o), isDoc ? docXlsxName(doc) : `${name}.xlsx`); toast(he ? '✓ קובץ האקסל נוצר ונשמר בהורדות' : '✓ Excel file created (saved to Downloads)', 4500); }
       else if (a === 'pdf') {
         const def = (isDoc ? docTitle(doc) : name).replace(/[\\/:*?"<>|]/g, '-'), fn = await promptDlg(he ? 'שם הקובץ' : 'File name', def); if (fn == null) return;
         o.fileName = fn.trim() || def; await (isDoc ? docPdf(doc, o) : catalogPdf(items, o));
       }
       else if (a === 'xshare') { const r = await shareOrDownload(isDoc ? docXlsx(doc, o) : catalogXlsx(items, o), isDoc ? docXlsxName(doc) : `${name}.xlsx`, isDoc ? docTitle(doc) : name); if (r === 'downloaded') toast(t('downloaded')); }
-      else if (a === 'gmail' || a === 'outlook') {
-        const su = encodeURIComponent(docTitle(doc)), bo = encodeURIComponent(waText(doc, o).replace(/\*/g, ''));
-        window.open(a === 'gmail' ? `https://mail.google.com/mail/?view=cm&fs=1&su=${su}&body=${bo}` : `https://outlook.live.com/mail/0/deeplink/compose?subject=${su}&body=${bo}`, '_blank');
-      }
+      else if (a === 'pdfshare') { const r = await sharePdf(doc, o); if (r === 'downloaded') toast(t('downloaded')); }
       else if (a === 'json' || a === 'jsondl') { await saveDoc(doc, { quiet: true }); const r = await shareDocJson(doc, { share: a === 'json' }); await saveDoc(doc, { quiet: true }); await log('export', `${doc.type} json`, doc.id); if (r === 'downloaded') toast(t('downloaded')); }
       else if (a === 'waimg') { const r = await shareImages(doc, o); if (r === 'downloaded') toast(t('downloaded')); }
       else if (a === 'watxt') openWhatsApp(waText(doc, o));

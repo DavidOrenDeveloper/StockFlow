@@ -89,3 +89,8 @@ main{padding:10px 12px 24px;max-width:1280px;margin:0 auto}.page.narrow{max-widt
 .footbar.slim{background:color-mix(in srgb,var(--primary) 8%,var(--card));border:1px solid color-mix(in srgb,var(--primary) 24%,var(--line));grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:1fr}
 .footbar.slim .btn:not(.primary){background:var(--card)}
 .dicon.sent{background:linear-gradient(135deg,#22c55e,#15803d)}
+
+/* developer credit: tiny, faint, top of the main pages only (hidden inside a document/editor page, never part of prints or shares) */
+.brand .bt{display:flex;flex-direction:column;line-height:1.15;min-width:0}.brand .credit{font-size:10px;font-weight:500;color:var(--muted);opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
+body[data-route=doc] .brand .credit{display:none}
+@media(max-width:420px){.brand .bt b{display:none}.brand .credit{max-width:30vw}}
