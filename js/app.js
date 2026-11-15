@@ -16,7 +16,7 @@ const NAV = [['catalog', 'box', 'catalog'], ['counts', 'clipboard', 'counts'], [
 function shell() {
   const app = document.getElementById('app');
   app.innerHTML = `<header class="top"><a class="brand" href="#/catalog" style="text-decoration:none;color:inherit"><span class="logo">${ic('box', 20)}</span><span class="bt"><b>${esc(t('brand'))}</b><small class="credit">${S.cfg.lang === 'he' ? 'פותח על ידי דוד אורן' : 'Developed by David Oren'}</small></span></a><span class="grow"></span>
-    <a class="btn" href="#/sku" id="skuBtn">${ic('table', 16)} <span>${S.cfg.lang === 'he' ? 'מק"טים' : 'SKUs'}</span></a>
+    <a class="btn" href="#/sku" id="skuBtn">${ic('table', 16)} <span>${S.cfg.lang === 'he' ? 'מקטי"ם' : 'SKUs'}</span></a>
     <button class="btn" id="instBtn" ${installEvt ? '' : 'hidden'}>${ic('download', 16)} <span>${esc(t('install'))}</span></button>
     <div class="seg" role="group" aria-label="language">${[['he', 'עב', 'עברית'], ['en', 'EN', 'English'], ['tr', 'ABC', 'Hebrew in Latin letters']].map(([k, l, ti]) => `<button data-l="${k}" title="${ti}" class="${S.cfg.lang === k ? 'on' : ''}">${l}</button>`).join('')}</div></header>
     <main id="view"></main>

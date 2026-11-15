@@ -49,6 +49,7 @@ export function render(root, { id }) {
     if (row) setQty(row, e.v ?? null); else { if (e.v == null) delete doc.lines[e.id]; else doc.lines[e.id] = e.v; progress(); autosave(); }
     toast(S.cfg.lang === 'he' ? 'הפעולה האחרונה בוטלה' : 'Last action undone');
   }
+  const catList = () => isCount ? [...S.cats.filter(c => c.id === 'c_etools'), ...S.cats.filter(c => c.id !== 'c_etools')] : S.cats;   // counts: power tools right after "All categories"
   const hidN = () => Object.keys(doc.hidden || {}).filter(id => S.byId.has(id)).length;
   const hidPill = () => [['hidden', `${S.cfg.lang === 'he' ? 'מוסתרים' : 'Hidden'} (${hidN()})`]];
   const hideBtn = it => `<button class="btn sm" style="padding:1px 8px;font-size:11px;margin-top:3px" ${doc.hidden?.[it.id] ? 'data-unhide' : 'data-hide'}>${S.cfg.lang === 'he' ? (doc.hidden?.[it.id] ? 'החזר למסמך' : 'הסתר ממסמך זה') : (doc.hidden?.[it.id] ? 'Restore' : 'Hide from this doc')}</button>`;
@@ -64,7 +65,7 @@ export function render(root, { id }) {
     $('#fl').innerHTML = isCount
       ? [['all', t('all')], ['uncounted', `${t('show_uncounted')} (${s.tot - s.n})`], ['counted', t('counted')], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ['sku', S.cfg.lang === 'he' ? 'רק עם מק"ט' : 'With SKU only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('')
       : [['all', t('all')], ['ordered', `${t('ordered')} (${s.ord})`], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ['sku', S.cfg.lang === 'he' ? 'רק עם מק"ט' : 'With SKU only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('');
-    $('#cats').innerHTML = `<button class="pill ${!cat ? 'on' : ''}" data-c="">${esc(t('all_cats'))}</button>` + S.cats.map(c => `<button class="pill ${cat === c.id ? 'on' : ''}" data-c="${c.id}">${esc(nm(c))}</button>`).join('');
+    $('#cats').innerHTML = `<button class="pill ${!cat ? 'on' : ''}" data-c="">${esc(t('all_cats'))}</button>` + catList().map(c => `<button class="pill ${cat === c.id ? 'on' : ''}" data-c="${c.id}">${esc(nm(c))}</button>`).join('');
   }
   const passes = it => {
     if (cat && it.cat !== cat) return false; const v = doc.lines[it.id];
@@ -81,7 +82,7 @@ export function render(root, { id }) {
     return `<div class="row ${v == null ? '' : v === 0 ? 'zero' : 'has'}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 24)}</button>
       <div class="info"><div class="n1">${bidi(nm(it))} <button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}">${ic('edit', 14)}</button></div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>
-        ${hideBtn(it)} <button class="btn sm lnkb" data-note type="button">${note ? (he_ ? 'ערוך הערה' : 'Edit note') : (he_ ? '+ הערה' : '+ Note')}</button>${isCount && it.cat === 'c_etools' ? ` <button class="btn sm lnkb" data-msd type="button">${he_ ? 'מס"דים' : 'MSD'}${(doc.units?.[it.id] || []).length ? ` (${doc.units[it.id].length})` : ''}</button>` : ''}${isCount && (doc.units?.[it.id] || []).length ? `<div class="uchips">${doc.units[it.id].map(u => `<button class="uchip" data-msd type="button">${u.img ? `<img src="${u.img}" alt="">` : ''}<b dir="ltr">${esc(u.msd || '—')}</b></button>`).join('')}</div>` : ''}</div>
+        ${hideBtn(it)} <button class="btn sm lnkb" data-note type="button">${note ? (he_ ? 'ערוך הערה' : 'Edit note') : (he_ ? '+ הערה' : '+ Note')}</button>${isCount && it.cat === 'c_etools' ? ` <button class="btn sm lnkb msdb" data-msd type="button">${he_ ? 'מס"דים' : 'MSD'}${(doc.units?.[it.id] || []).length ? ` (${doc.units[it.id].length}) ${ic('edit', 12)}` : ''}</button>` : ''}${isCount && (doc.units?.[it.id] || []).length ? `<div class="uchips">${doc.units[it.id].map(u => `<button class="uchip" data-msd type="button" title="${he_ ? 'עריכה' : 'Edit'}">${u.img ? `<img src="${u.img}" alt="">` : ''}<span class="ul">${he_ ? 'מס"ד' : 'MSD'}</span><b dir="ltr">${esc(u.msd || '—')}</b></button>`).join('')}</div>` : ''}</div>
       <div class="qty"><button data-dec aria-label="-">${ic('minus', 18)}</button><input inputmode="decimal" autocomplete="off" value="${v == null ? '' : fmtQty(v)}" placeholder="${isCount ? '—' : '0'}" aria-label="${esc(nm(it))}"><button data-inc aria-label="+">${ic('plus', 18)}</button>${isCount ? `<button class="clr" data-clr style="visibility:${v != null ? 'visible' : 'hidden'}" title="${esc(t('uncount'))}">${ic('x', 14)}</button>` : ''}</div>${note ? noteRow(note) : ''}</div>`;
   }
   // power tools: every physical tool = one photo + ITS OWN MSD number (the number engraved on that tool). Stored only inside this count (never in the catalog); can be copied from the last count of the same site.
@@ -95,11 +96,19 @@ export function render(root, { id }) {
     const draw = () => {
       m.$('[data-ul]').innerHTML = `<p class="hint">${esc(he_ ? 'צלם או בחר תמונה של כל כלי (אפשר כמה תמונות בבת אחת), ורשום ליד כל תמונה את המס"ד שנראה עליה. כל תמונה והמס"ד שלה הם כלי אחד, וכך הם יוצאים גם בקובץ הספירה.' : 'Take or choose a photo of each tool (several photos at once is fine) and type next to each photo the MSD number visible on it. Each photo with its number is one tool, and that is how they appear in the exported count.')}</p>
         <div class="btnrow wrap"><button class="btn" type="button" data-cam>${ic('image', 16)} ${esc(he_ ? 'צלם כלי' : 'Take photo')}</button><button class="btn" type="button" data-gal>${ic('image', 16)} ${esc(he_ ? 'הוסף תמונות' : 'Add photos')}</button><button class="btn" type="button" data-add>${ic('plus', 16)} ${esc(he_ ? 'כלי בלי תמונה' : 'Tool without photo')}</button>${prevU.length ? `<button class="btn" type="button" data-prev>${esc(he_ ? `העתק מהספירה האחרונה באתר (${prevU.length})` : `Copy from last count at this site (${prevU.length})`)}</button>` : ''}</div>
-        ${us.map((u, i) => `<div class="urow"><button class="uimg" type="button" data-zoom="${i}" title="${esc(he_ ? 'הגדלה' : 'Enlarge')}">${u.img ? `<img src="${u.img}" alt="">` : ic('image', 26)}</button><label class="fld" style="margin:0"><span>${esc(he_ ? `כלי ${i + 1} – מס"ד` : `Tool ${i + 1} – MSD`)}</span><input data-n="${i}" dir="ltr" inputmode="numeric" value="${esc(u.msd || '')}" autocomplete="off"></label><button class="icon-btn" type="button" data-rm="${i}">${ic('trash', 18)}</button></div>`).join('')}
-        <input type="file" accept="image/*" capture="environment" hidden data-fcam><input type="file" accept="image/*" multiple hidden data-fgal>`;
+        ${us.map((u, i) => `<div class="urow"><button class="uimg" type="button" data-zoom="${i}" title="${esc(he_ ? 'הגדלה' : 'Enlarge')}">${u.img ? `<img src="${u.img}" alt="">` : ic('image', 26)}</button><div class="ucol"><label class="fld" style="margin:0"><span>${esc(he_ ? `כלי ${i + 1} – מס"ד` : `Tool ${i + 1} – MSD`)}</span><input data-n="${i}" dir="ltr" inputmode="numeric" value="${esc(u.msd || '')}" autocomplete="off"></label><div class="uact"><button class="btn sm" type="button" data-rcam="${i}">${ic('image', 14)} ${esc(u.img ? (he_ ? 'צלם מחדש' : 'Retake') : (he_ ? 'צלם' : 'Take photo'))}</button><button class="btn sm" type="button" data-rgal="${i}">${esc(u.img ? (he_ ? 'החלף מהגלריה' : 'Replace') : (he_ ? 'מהגלריה' : 'From gallery'))}</button>${u.img ? `<button class="btn sm" type="button" data-rimg="${i}">${esc(he_ ? 'הסר תמונה' : 'Remove photo')}</button>` : ''}</div></div><button class="icon-btn" type="button" data-rm="${i}" aria-label="${esc(he_ ? 'מחק כלי' : 'Delete tool')}">${ic('trash', 18)}</button></div>`).join('')}
+        <input type="file" accept="image/*" capture="environment" hidden data-fcam><input type="file" accept="image/*" multiple hidden data-fgal><input type="file" accept="image/*" capture="environment" hidden data-frcam><input type="file" accept="image/*" hidden data-frgal>`;
       m.$$('[data-n]').forEach(x => x.oninput = () => { us[+x.dataset.n].msd = x.value; });
       m.$$('[data-rm]').forEach(b => b.onclick = () => { us.splice(+b.dataset.rm, 1); draw(); });
-      m.$$('[data-zoom]').forEach(b => b.onclick = () => { const u = us[+b.dataset.zoom]; if (!u?.img) return; const z = openModalU({ title: u.msd ? `${he_ ? 'מס"ד' : 'MSD'} ${u.msd}` : nm(it), wide: true, content: `<img src="${u.img}" alt="" style="width:100%;border-radius:10px">`, actions: `<span class="grow"></span><button class="btn primary" data-x>${esc(he_ ? 'סגור' : 'Close')}</button>` }); z.$('[data-x]').onclick = () => z.close(); });
+      // edit a tool's photo any time: take / replace / remove (also for a tool that was added without a photo)
+      const setImg = async (i, f) => { if (!f || !us[i]) return; us[i].img = await blobToDataURLU(await resizeImageU(f, 900)); draw(); };
+      let ri = -1;
+      m.$$('[data-rcam]').forEach(b => b.onclick = () => { ri = +b.dataset.rcam; m.$('[data-frcam]').click(); });
+      m.$$('[data-rgal]').forEach(b => b.onclick = () => { ri = +b.dataset.rgal; m.$('[data-frgal]').click(); });
+      m.$$('[data-rimg]').forEach(b => b.onclick = () => { us[+b.dataset.rimg].img = ''; draw(); });
+      m.$('[data-frcam]').onchange = e => { const f = e.target.files[0]; e.target.value = ''; setImg(ri, f); };
+      m.$('[data-frgal]').onchange = e => { const f = e.target.files[0]; e.target.value = ''; setImg(ri, f); };
+      m.$$('[data-zoom]').forEach(b => b.onclick = () => { const u = us[+b.dataset.zoom]; if (!u?.img) { m.$(`[data-rcam="${b.dataset.zoom}"]`)?.click(); return; } const z = openModalU({ title: u.msd ? `${he_ ? 'מס"ד' : 'MSD'} ${u.msd}` : nm(it), wide: true, content: `<img src="${u.img}" alt="" style="width:100%;border-radius:10px">`, actions: `<span class="grow"></span><button class="btn primary" data-x>${esc(he_ ? 'סגור' : 'Close')}</button>` }); z.$('[data-x]').onclick = () => z.close(); });
       m.$('[data-cam]').onclick = () => m.$('[data-fcam]').click(); m.$('[data-gal]').onclick = () => m.$('[data-fgal]').click();
       m.$('[data-fcam]').onchange = e => { const f = [...e.target.files]; e.target.value = ''; addPhotos(f); };
       m.$('[data-fgal]').onchange = e => { const f = [...e.target.files]; e.target.value = ''; addPhotos(f); };
@@ -126,7 +135,7 @@ export function render(root, { id }) {
       if (ap.length) html += `<h3 class="grp soft">${esc(t('similar_matches'))}</h3>${ap.map(x => rowHtml(x.it)).join('')}`;
       if (!ex.length && !ap.length) html = `<div class="empty"><p>${esc(t('no_results'))}</p></div>`;
     } else {
-      for (const c of S.cats) { const its = S.items.filter(i => i.cat === c.id && passes(i)); if (its.length) html += `<h3 class="grp">${esc(nm(c))} <b>${its.length}</b></h3>${its.map(rowHtml).join('')}`; }
+      for (const c of catList()) { const its = S.items.filter(i => i.cat === c.id && passes(i)); if (its.length) html += `<h3 class="grp">${esc(nm(c))} <b>${its.length}</b></h3>${its.map(rowHtml).join('')}`; }
       if (!html) html = `<div class="empty"><p>${esc(flt === 'uncounted' ? t('all_counted') : t('no_results'))}</p></div>`;
     }
     $('#list').innerHTML = html;

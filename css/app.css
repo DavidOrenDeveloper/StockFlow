@@ -121,3 +121,16 @@ html{overflow-x:hidden}body{overflow-x:clip;max-width:100%}
 /* v1.6.8: tools (MSD) in counts */
 .urow{grid-template-columns:96px 1fr auto}.urow .uimg{width:96px;height:96px;cursor:zoom-in}
 .uchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;width:100%}.uchip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:3px 8px 3px 3px;cursor:pointer}.uchip img{width:34px;height:34px;object-fit:cover;border-radius:7px}.uchip b{font-size:14px}
+
+/* v1.6.9: clearer MSD list (chips in the row + tool rows in the dialog) */
+.btn.lnkb.msdb{background:var(--primary);border-color:var(--primary);color:#fff;font-size:13px;font-weight:700;min-height:28px;padding:3px 12px;gap:5px}
+.uchips{padding:8px;border-radius:12px;background:var(--primary-soft);border:1px solid var(--primary)}
+.uchip{background:var(--card);border:2px solid var(--primary);border-radius:12px;padding:3px 10px 3px 3px;gap:7px}
+.uchip img{width:44px;height:44px;border-radius:9px}
+.uchip .ul{font-size:12px;font-weight:700;color:var(--muted)}
+.uchip b{font-size:18px;font-weight:800;color:var(--primary);letter-spacing:.3px}
+.urow{background:var(--primary-soft);border:1.5px solid var(--primary);border-radius:14px;padding:8px;margin-bottom:10px}
+.urow .uimg{border:2px dashed var(--primary);background:var(--card);color:var(--primary)}
+.urow .fld>span{font-size:14px;font-weight:700;color:var(--text)}
+.urow .fld input{font-size:20px;font-weight:800;border:2px solid var(--primary);background:var(--card);min-height:46px}
+.ucol{min-width:0}.uact{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}

@@ -27,7 +27,7 @@ const guessCat = n => (CATS.find(([re]) => re.test(n)) || [0, S.cats.find(c => c
 export function render(root) {
   let tab = 'match', showAll = false, shown = 15, q = '', adShown = 40;
   const skipped = new Set(), touched = new Map();   // touched: items whose SKU I changed on this page (id -> SKU before). They stay in place until the page is reopened, each with its own Undo.
-  root.innerHTML = `<div class="page"><div class="bar"><b>${esc(L('מק"טי שפיר', 'Shapir SKUs'))}</b></div>
+  root.innerHTML = `<div class="page"><div class="bar"><b>${esc(L('מקטי"ם של שפיר', 'Shapir SKUs'))}</b></div>
     <div class="chips-row"><button class="pill" data-t="match"></button><button class="pill" data-t="add"></button></div><div id="body"><div class="spinner"></div></div></div>`;
   const $ = s => root.querySelector(s);
   const missing = () => S.items.filter(i => !String(i.sku || '').trim());
@@ -36,7 +36,7 @@ export function render(root) {
   const btn = (id, c, s) => `<button class="btn sm" style="text-align:start;white-space:normal;margin:2px 0;width:100%" data-ap="${id}|${esc(c.sku)}">${ic('check', 14)} ${esc(c.name)} · <b dir="ltr">${esc(c.sku)}</b>${s != null ? ` <small>${Math.round(s * 100)}%</small>` : ''}</button>`;
 
   function drawTabs() {
-    root.querySelectorAll('[data-t]').forEach(b => { b.classList.toggle('on', b.dataset.t === tab); b.textContent = b.dataset.t === 'match' ? `${L('התאמת מק"טים', 'Match SKUs')} (${missing().length})` : `${L('קטלוג שפיר', 'Shapir catalog')} (${added().length})`; });
+    root.querySelectorAll('[data-t]').forEach(b => { b.classList.toggle('on', b.dataset.t === tab); b.textContent = b.dataset.t === 'match' ? `${L('התאמת מקטי"ם', 'Match SKUs')} (${missing().length})` : `${L('קטלוג שפיר', 'Shapir catalog')} (${added().length})`; });
   }
   function drawMatch() {
     const list = (showAll ? S.items : S.items.filter(i => !String(i.sku || '').trim() || touched.has(i.id))).filter(i => !skipped.has(i.id));
