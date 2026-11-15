@@ -1,7 +1,7 @@
 // List of counts / orders / all files (with folders, worker grouping, import of worker JSON files)
 import { S, nm, siteOf, addSite, newDoc, saveDoc, deleteDoc, importDocEnvelope, DOC_STATUS, saveList, log, setStatus } from '../store.js';
 import { t } from '../i18n.js';
-import { esc, fmtDate, fmtQty, readFileText, toast, uid } from '../util.js';
+import { esc, fmtDate, readFileText, toast, uid } from '../util.js';
 import { ic } from '../icons.js';
 import { openModal, confirmDlg, menu, promptDlg, navigate } from '../modal.js';
 import { exportDialog } from './exportDialog.js';

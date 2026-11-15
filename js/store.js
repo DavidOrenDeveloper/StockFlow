@@ -77,7 +77,7 @@ async function applyShapirImport() {
     for (const [sku, name, unit, img, cat, alts] of j.items) {
       const id = 'sh_' + sku;
       if (haveSku.has(sku) || haveKey.has(sku + '|' + name) || S.byId.has(id)) continue;
-      add.push({ id, sku, he: name, en: '', tr: '', cat, unit: S.units.some(u => u.id === unit) ? unit : unit0, emergency: null, syn: alts || [], imgId: null, imgUrl: img ? `data/img/${img}.webp` : '', note: '', order: ++order, src: 'shapir', srcKey: sku + '|' + name, createdAt: now, updatedAt: now });
+      add.push({ id, sku, he: name, en: '', tr: '', cat, unit: S.units.some(u => u.id === unit) ? unit : unit0, syn: alts || [], imgId: null, imgUrl: img ? `data/img/${img}.webp` : '', note: '', order: ++order, src: 'shapir', srcKey: sku + '|' + name, createdAt: now, updatedAt: now });
     }
     if (add.length) { await db.putMany('items', add); S.items.push(...add); reindex(); await log('shapir', `imported ${add.length}`); }
     S.cfg.shapirAll150 = true; await db.kvSet('cfg', S.cfg);
@@ -150,7 +150,7 @@ export async function setImage(item, blob) {
 export async function removeImage(item) { if (item.imgId) { await db.del('images', item.imgId); S.img.delete(item.imgId); item.imgId = null; } item.imgUrl = ''; }
 
 // ---------- items ----------
-export const newItem = () => ({ id: uid('i'), sku: '', he: '', en: '', tr: '', cat: S.cats[0]?.id || '', unit: S.units[0]?.id || '', emergency: null, syn: [], imgId: null, note: '', order: Math.max(0, ...S.items.map(i => i.order || 0)) + 1, createdAt: new Date().toISOString() });
+export const newItem = () => ({ id: uid('i'), sku: '', he: '', en: '', tr: '', cat: S.cats[0]?.id || '', unit: S.units[0]?.id || '', syn: [], imgId: null, note: '', order: Math.max(0, ...S.items.map(i => i.order || 0)) + 1, createdAt: new Date().toISOString() });
 export async function saveItem(it) {
   it.updatedAt = it.editedAt = new Date().toISOString(); it.sku = String(it.sku ?? '').trim();   // editedAt = a real user edit (used by "send catalog updates to the manager")
   const isNew = !S.byId.has(it.id);
@@ -172,7 +172,7 @@ export function newDoc(type) {
   const site = S.cfg.lastSite && siteOf(S.cfg.lastSite) ? S.cfg.lastSite : (S.sites[0]?.id || '');
   return { id: uid('d'), type, site, date: today(), worker: S.cfg.worker || '', status: 'draft', folder: defaultFolder(type), note: '', lines: {}, snap: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exportedAt: null, imported: null };
 }
-const snapOf = id => { const it = S.byId.get(id); return it ? { sku: it.sku, he: it.he, en: it.en, tr: it.tr, unit: nm(unitOf(it.unit), 'he'), unitEn: nm(unitOf(it.unit), 'en'), unitTr: nm(unitOf(it.unit), 'tr'), cat: nm(catOf(it.cat), 'he'), catEn: nm(catOf(it.cat), 'en'), catTr: nm(catOf(it.cat), 'tr'), emergency: it.emergency } : null; };
+const snapOf = id => { const it = S.byId.get(id); return it ? { sku: it.sku, he: it.he, en: it.en, tr: it.tr, unit: nm(unitOf(it.unit), 'he'), unitEn: nm(unitOf(it.unit), 'en'), unitTr: nm(unitOf(it.unit), 'tr'), cat: nm(catOf(it.cat), 'he'), catEn: nm(catOf(it.cat), 'en'), catTr: nm(catOf(it.cat), 'tr') } : null; };
 export async function saveDoc(d, { quiet = false } = {}) {
   d.updatedAt = new Date().toISOString();
   for (const id of Object.keys(d.lines)) { if (d.lines[id] == null) delete d.lines[id]; else if (!d.snap[id]) { const s = snapOf(id); if (s) d.snap[id] = s; } }
@@ -189,11 +189,6 @@ export const docItems = d => { // rows for a doc: catalog items (ordered) + dele
 };
 export function lastCount(siteId, excludeId) {
   return S.docs.filter(d => d.type === 'count' && d.site === siteId && d.id !== excludeId && Object.keys(d.lines).length).sort((a, b) => (b.date + b.updatedAt).localeCompare(a.date + a.updatedAt))[0] || null;
-}
-export function orderFromCount(count) {
-  const o = newDoc('order'); o.site = count.site; o.note = `from count ${count.date}`; o.hidden = { ...(count.hidden || {}) };
-  for (const it of S.items) { const q = count.lines[it.id]; if (!count.hidden?.[it.id] && it.emergency != null && q != null && q < it.emergency) o.lines[it.id] = it.emergency - q; }
-  return o;
 }
 export async function importDocEnvelope(env, { onConflict } = {}) {
   if (!env || env.app !== APP_ID || env.kind !== 'doc' || !env.doc) throw new Error('not-doc');

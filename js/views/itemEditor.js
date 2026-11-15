@@ -1,7 +1,7 @@
-import { S, nm, saveItem, deleteItem, setImage, removeImage, imgOf, catOf } from '../store.js';
+import { S, nm, saveItem, deleteItem, setImage, removeImage, imgOf } from '../store.js';
 import { openModal, confirmDlg, zoomImg } from '../modal.js';
 import { t } from '../i18n.js';
-import { esc, resizeImage, num, toast } from '../util.js';
+import { esc, resizeImage, toast } from '../util.js';
 import { ic } from '../icons.js';
 import { suggestEn, suggestTr, hasHebrew } from '../lexicon.js';
 
@@ -19,8 +19,8 @@ export function editItem(item, { isNew = false, onDone } = {}) {
         <label class="fld"><span>${esc(t('name_he'))}</span><input data-f="he" dir="rtl" value="${esc(d.he)}" autocomplete="off"></label>
         <label class="fld"><span>${esc(t('name_en'))}</span><div class="withbtn"><input data-f="en" dir="ltr" value="${esc(d.en)}" autocomplete="off"><button class="icon-btn" type="button" data-wand="en" title="${esc(t('suggest'))}">${ic('wand', 18)}</button></div></label>
         <label class="fld"><span>${esc(t('name_tr'))}</span><div class="withbtn"><input data-f="tr" dir="ltr" value="${esc(d.tr)}" autocomplete="off" style="text-transform:uppercase"><button class="icon-btn" type="button" data-wand="tr" title="${esc(t('suggest'))}">${ic('wand', 18)}</button></div></label>
-        <div class="two"><label class="fld"><span>${esc(t('sku'))}</span><input data-f="sku" dir="ltr" inputmode="text" value="${esc(d.sku)}" placeholder="${esc(t('sku_ph'))}" autocomplete="off"></label>
-        <label class="fld"><span>${esc(t('emergency'))}</span><input data-f="emergency" dir="ltr" inputmode="decimal" value="${d.emergency ?? ''}" autocomplete="off"><small class="hint">${esc(S.cfg.lang === 'he' ? 'אופציונלי. הכמות שמתחתיה הפריט נחשב חסר: בספירה הוא מסומן באדום ואפשר לסנן "מתחת למינימום". ריק = הפריט לא משתתף בזה.' : 'Optional. Below this quantity the item counts as short: it is marked red in counts, can be filtered. Empty = not used.')}</small></label></div>
+        <div><label class="fld"><span>${esc(t('sku'))}</span><input data-f="sku" dir="ltr" inputmode="text" value="${esc(d.sku)}" placeholder="${esc(t('sku_ph'))}" autocomplete="off"></label>
+        </div>
         <div class="two"><label class="fld"><span>${esc(t('category'))}</span><select data-f="cat">${opt(S.cats, d.cat)}</select></label>
         <label class="fld"><span>${esc(t('unit'))}</span><select data-f="unit">${opt(S.units, d.unit)}</select></label></div>
         <div class="fld"><span>${esc(t('synonyms_item'))}</span><div class="chips" data-chips></div><input data-syn placeholder="${esc(t('syn_ph'))}"></div>
@@ -48,7 +48,7 @@ export function editItem(item, { isNew = false, onDone } = {}) {
   if (!isNew) m.$('[data-del]').onclick = async () => { if (await confirmDlg(t('confirm_delete_item', { n: item.he }), { danger: true, ok: t('delete') })) { await deleteItem(item.id); m.close(); toast(t('deleted')); onDone && onDone(); } };
   m.$('[data-save]').onclick = async () => {
     addSyn();
-    const o = { ...d, he: he.value.trim(), en: en.value.trim(), tr: tr.value.trim(), sku: F('sku').value.trim(), emergency: num(F('emergency').value), cat: F('cat').value, unit: F('unit').value, note: F('note').value.trim() };
+    const o = { ...d, he: he.value.trim(), en: en.value.trim(), tr: tr.value.trim(), sku: F('sku').value.trim(), cat: F('cat').value, unit: F('unit').value, note: F('note').value.trim() };
     if (!o.he && !o.en) { he.focus(); he.classList.add('err'); return; }
     if (o.sku) { const dup = S.items.find(i => i.sku === o.sku && i.id !== o.id); if (dup && !(await confirmDlg(t('dup_sku', { n: dup.he })))) return; }
     if (pending) await setImage(o, pending); else if (removeImg) await removeImage(o);

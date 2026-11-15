@@ -25,10 +25,18 @@ export function docLines(d, o = {}) {
   if (d.type === 'order' ? o.onlyQty !== false : o.onlyQty) rows = rows.filter(r => (r.qty ?? 0) > 0);
   else if (o.onlyCounted) rows = rows.filter(r => r.qty != null);
   rows.sort((a, b) => catRank(a.it) - catRank(b.it) || (a.it?.order ?? 9e9) - (b.it?.order ?? 9e9));
-  return rows.map(r => ({
-    sku: r.it?.sku ?? r.snap?.sku ?? '', he: L3(r.it, r.snap, 'he'), en: L3(r.it, r.snap, 'en'), tr: L3(r.it, r.snap, 'tr'), cat: catName(r.it, r.snap),
-    unit: unitName(r.it, r.snap), qty: r.qty, emergency: r.it?.emergency ?? r.snap?.emergency ?? null, img: imgOf(r.it), note: [d.notes?.[r.id] || '', (d.units?.[r.id] || []).map(u => u.msd).filter(Boolean).join(', ') ? `${S.cfg.lang === 'he' ? 'מס"ד' : 'MSD'}: ${(d.units[r.id] || []).map(u => u.msd).filter(Boolean).join(', ')}` : ''].filter(Boolean).join(' · ')
-  }));
+  const he = S.cfg.lang === 'he';
+  return rows.flatMap(r => {
+    const base = {
+      sku: r.it?.sku ?? r.snap?.sku ?? '', he: L3(r.it, r.snap, 'he'), en: L3(r.it, r.snap, 'en'), tr: L3(r.it, r.snap, 'tr'), cat: catName(r.it, r.snap),
+      unit: unitName(r.it, r.snap), qty: r.qty, img: imgOf(r.it), note: d.notes?.[r.id] || ''
+    };
+    const us = d.units?.[r.id] || []; if (!us.length) return [base];
+    // power tools: one line per physical tool with ITS photo and ITS MSD number
+    const out = us.map(u => ({ ...base, qty: 1, img: u.img || base.img, he: `${base.he} – ${he ? 'מס"ד' : 'MSD'} ${u.msd || '?'}`, en: base.en ? `${base.en} – MSD ${u.msd || '?'}` : '', tr: base.tr ? `${base.tr} – MSD ${u.msd || '?'}` : '' }));
+    const rest = (r.qty ?? 0) - us.length; if (rest > 0) out.push({ ...base, qty: rest });
+    return out;
+  });
 }
 const docMeta = d => [
   [t('type'), d.type === 'count' ? t('count') : t('order')], [t('site'), nm(siteOf(d.site), 'he') || ''], [t('worker'), d.worker || ''],
@@ -44,8 +52,6 @@ function docColumns(d, o, lines) {
   if (lines?.some(l => l.note)) cols.push({ h: t('note'), w: 24, f: r => r.note, s: 2 });
   cols.push({ h: t('category'), w: 16, f: r => r.cat, s: 2 }, { h: t('unit'), w: 10, f: r => r.unit, s: 3 });
   cols.push({ h: d.type === 'count' ? t('counted') : t('qty_order'), w: 12, f: r => r.qty ?? (d.type === 'count' ? '—' : ''), s: 6 });
-  if (o.emergency) cols.push({ h: t('emergency'), w: 10, f: r => r.emergency ?? '', s: 3 });
-  if (o.emergency && d.type === 'count') cols.push({ h: t('shortage'), w: 10, f: r => (r.emergency != null && r.qty != null ? Math.max(0, r.emergency - r.qty) : ''), s: 3 });
   return cols;
 }
 export function docXlsx(d, o = {}) {
@@ -57,7 +63,7 @@ export function docXlsx(d, o = {}) {
 }
 export function catalogXlsx(items, o = {}) {
   const cols = [{ h: t('sku'), w: 18, f: i => i.sku, s: 2 }, { h: t('name_he'), w: 34, f: i => i.he, s: 2 }, { h: t('name_en'), w: 30, f: i => i.en, s: 2 }, { h: t('name_tr'), w: 26, f: i => i.tr, s: 2 },
-    { h: t('category'), w: 16, f: i => nm(catOf(i.cat), 'he'), s: 2 }, { h: t('unit'), w: 10, f: i => nm(unitOf(i.unit), 'he'), s: 3 }, { h: t('emergency'), w: 10, f: i => i.emergency ?? '', s: 3 }];
+    { h: t('category'), w: 16, f: i => nm(catOf(i.cat), 'he'), s: 2 }, { h: t('unit'), w: 10, f: i => nm(unitOf(i.unit), 'he'), s: 3 }];
   if (o.qtyCol) cols.push({ h: t('qty_order'), w: 12, f: () => '', s: 6 });
   const rows = [[{ v: t('catalog') + ' · ' + fmtDate(new Date().toISOString().slice(0, 10), 'en'), s: 4 }], [], cols.map(c => ({ v: c.h, s: 1 }))];
   items.forEach(i => rows.push(cols.map(c => { const v = c.f(i); return { v: typeof v === 'number' ? v : String(v ?? ''), s: c.s }; })));

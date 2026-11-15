@@ -12,7 +12,7 @@ const chk = (k, label, on) => `<label class="chk"><input type="checkbox" data-o=
 export function exportDialog({ kind, doc, items, name = 'catalog' }) {
   const isDoc = kind === 'doc', isCount = isDoc && doc.type === 'count';
   const opts = isDoc
-    ? (isCount ? chk('onlyCounted', t('opt_only_counted'), true) : chk('onlyQty', t('opt_only_ordered'), true)) + chk('en', t('opt_en'), false) + chk('tr', t('opt_tr'), false) + chk('emergency', t('opt_emergency'), false) + chk('img', t('opt_img_pdf'), true)
+    ? (isCount ? chk('onlyCounted', t('opt_only_counted'), true) : chk('onlyQty', t('opt_only_ordered'), true)) + chk('en', t('opt_en'), false) + chk('tr', t('opt_tr'), false) + chk('img', t('opt_img_pdf'), true)
     : chk('qtyCol', t('opt_qty_col'), true) + chk('img', t('opt_img_pdf'), true);
   const he = S.cfg.lang === 'he';
   const chip = (bg, inner) => `<span class="exc" style="background:${bg}">${inner}</span>`;
