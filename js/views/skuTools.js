@@ -36,7 +36,7 @@ export function render(root) {
   const btn = (id, c, s) => `<button class="btn sm" style="text-align:start;white-space:normal;margin:2px 0;width:100%" data-ap="${id}|${esc(c.sku)}">${ic('check', 14)} ${esc(c.name)} · <b dir="ltr">${esc(c.sku)}</b>${s != null ? ` <small>${Math.round(s * 100)}%</small>` : ''}</button>`;
 
   function drawTabs() {
-    root.querySelectorAll('[data-t]').forEach(b => { b.classList.toggle('on', b.dataset.t === tab); b.textContent = b.dataset.t === 'match' ? `${L('שיוך מק"ט לפריטים שלי', 'Assign SKUs to my items')} (${missing().length})` : `${L('הוספת פריטים מקטלוג שפיר', 'Add items from the Shapir catalog')} (${added().length})`; });
+    root.querySelectorAll('[data-t]').forEach(b => { b.classList.toggle('on', b.dataset.t === tab); b.textContent = b.dataset.t === 'match' ? `${L('התאמת מק"טים', 'Match SKUs')} (${missing().length})` : `${L('קטלוג שפיר', 'Shapir catalog')} (${added().length})`; });
   }
   function drawMatch() {
     const list = (showAll ? S.items : S.items.filter(i => !String(i.sku || '').trim() || touched.has(i.id))).filter(i => !skipped.has(i.id));
@@ -45,7 +45,7 @@ export function render(root) {
       return `<div class="card" style="padding:10px;margin:8px 0" data-id="${it.id}"><div style="display:flex;gap:10px;align-items:center">${u ? `<img src="${u}" style="width:52px;height:52px;object-fit:contain">` : ''}
         <div style="flex:1"><b>${esc(nm(it))}</b><br><small>${has ? `${esc(L('מק"ט', 'SKU'))}: <b dir="ltr">${esc(has)}</b>` : esc(L('ללא מק"ט', 'No SKU'))}</small></div></div>
         ${has ? '' : cand(it).map(x => btn(it.id, x.c, x.s)).join('') || `<small>${esc(L('לא נמצאה התאמה אוטומטית', 'No automatic match'))}</small>`}
-        <div style="display:flex;gap:6px;margin-top:6px"><input class="srch" placeholder="${esc(L('חפש בקטלוג שפיר…', 'Search Shapir…'))}" style="flex:1"><input class="man" placeholder="${esc(L('מק"ט ידני', 'Manual SKU'))}" dir="ltr" style="width:34%"><button class="btn sm" data-man="${it.id}" title="${esc(L('אשר מק"ט ידני', 'Apply manual SKU'))}">${ic('check', 14)}</button><button class="btn sm" data-edit="${it.id}" title="${esc(L('עריכת הפריט', 'Edit item'))}">${ic('edit', 14)}</button></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"><input class="srch" placeholder="${esc(L('חפש בקטלוג שפיר…', 'Search Shapir…'))}" style="flex:1 1 140px;min-width:0"><input class="man" placeholder="${esc(L('מק"ט ידני', 'Manual SKU'))}" dir="ltr" style="width:34%"><button class="btn sm" data-man="${it.id}" title="${esc(L('אשר מק"ט ידני', 'Apply manual SKU'))}">${ic('check', 14)}</button><button class="btn sm" data-edit="${it.id}" title="${esc(L('עריכת הפריט', 'Edit item'))}">${ic('edit', 14)}</button></div>
         <div class="res"></div><div style="margin-top:4px">${touched.has(it.id) ? `<button class="btn sm" data-undo="${it.id}">↶ ${esc(L('בטל', 'Undo'))}</button>` : has ? `<button class="btn sm" data-clr="${it.id}">${esc(L('נקה מק"ט', 'Clear SKU'))}</button>` : `<button class="btn sm" data-skip="${it.id}">${esc(L('דלג', 'Skip'))}</button>`}</div></div>`;
     }).join('');
     $('#body').innerHTML = `<div class="chips-row"><button class="pill ${showAll ? '' : 'on'}" data-f="miss">${esc(L('ללא מק"ט', 'Without SKU'))}</button><button class="pill ${showAll ? 'on' : ''}" data-f="all">${esc(L('כל הפריטים (עריכה)', 'All items (edit)'))}</button></div>

@@ -1,4 +1,4 @@
-import { S, nm, setCfg, saveList, pendingUpdates, exportUpdatesBlob, markUpdatesSent, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
+import { S, setCfg, saveList, pendingUpdates, exportUpdatesBlob, markUpdatesSent, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
 import { t, setLang } from '../i18n.js';
 import { esc, fmtDateTime, download, shareOrDownload, stamp, readFileText, toast, uid, safeName } from '../util.js';
 import { ic } from '../icons.js';
@@ -49,7 +49,7 @@ export function render(root, { rerender }) {
       ${sw('synOn', t('use_synonyms'), c.synOn, t('use_synonyms_hint'))}${sw('fuzzy', t('use_fuzzy'), c.fuzzy, t('use_fuzzy_hint'))}
       ${worker ? '' : `<div class="btnrow wrap"><button class="btn" id="syn">${ic('list', 18)} ${esc(t('manage_synonyms'))}</button></div>`}</section>
     ${worker ? '' : `<section class="card sec"><h2>${ic('sliders', 20)} ${esc(t('lists'))}</h2><div class="btnrow wrap">
-      <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button><button class="btn" id="clrEm">${c.lang === 'he' ? 'איפוס כל המינימום' : 'Reset all minimums'}</button></div></section>`}
+      <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button></div></section>`}
     <section class="card sec"><h2>${ic('download', 20)} ${esc(t('data'))} <button class="qmark" id="helpBtn" type="button" aria-label="${esc(LL('עזרה', 'Help'))}">?</button></h2>
       <div id="helpBox" hidden><p class="hint">${esc(LL('לחיצה על כפתור פותחת הסבר מפורט, ולחיצה נוספת סוגרת.', 'Tap a button to open its detailed explanation, tap again to close.'))}</p>${helpItems().map(([k, label, txt]) => `<button class="btn hbtn" type="button" data-h="${k}"><span>${esc(label)}</span><span>▾</span></button><div class="hbody" hidden>${esc(txt)}</div>`).join('')}</div>
       <p class="hint">${esc(t('last_backup'))}: <b>${c.lastBackup ? esc(fmtDateTime(c.lastBackup, c.lang)) : esc(t('never'))}</b></p>
@@ -73,13 +73,6 @@ export function render(root, { rerender }) {
   const syn = $('#syn'); if (syn) syn.onclick = synonymsManager;
   root.querySelectorAll('[data-list]').forEach(b => b.onclick = () => listEditor(b.dataset.list));
   const fl = $('#fld'); if (fl) fl.onclick = () => folderManager();
-  const em = $('#clrEm'); if (em) em.onclick = async () => {
-    const he = S.cfg.lang === 'he', n = S.items.filter(i => i.emergency != null).length;
-    if (!n) return toast(he ? 'אין ערכי מינימום להסרה' : 'No minimums set');
-    if (!(await confirmDlg(he ? `לאפס את המינימום של ${n} פריטים? אפשר להזין אותו מחדש בכל פריט בנפרד.` : `Reset the minimum of ${n} items? You can set it again per item.`, { danger: true, ok: he ? 'אפס' : 'Reset' }))) return;
-    const now = new Date().toISOString(); S.items.forEach(i => { if (i.emergency != null) { i.emergency = null; i.updatedAt = now; } });
-    const { putMany } = await import('../db.js'); await putMany('items', S.items); await log('item~', 'reset minimums'); toast(he ? 'המינימום אופס' : 'Minimums reset');
-  };
   const stamped = async () => { const b = await backupAll(); return new Blob([JSON.stringify(b)], { type: 'application/json' }); };
   $('#helpBtn').onclick = () => { const b = $('#helpBox'); b.hidden = !b.hidden; };
   $('#helpBox').onclick = e => { const h = e.target.closest('[data-h]'); if (!h) return; const body = h.nextElementSibling; body.hidden = !body.hidden; h.lastElementChild.textContent = body.hidden ? '▾' : '▴'; };
