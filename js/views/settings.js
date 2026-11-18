@@ -1,4 +1,4 @@
-import { S, setCfg, saveList, pendingUpdates, exportUpdatesBlob, markUpdatesSent, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
+import { S, setCfg, saveList, pendingUpdates, exportUpdatesBlob, markUpdatesSent, itemsFromIds, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
 import { t, setLang } from '../i18n.js';
 import { esc, fmtDateTime, download, shareOrDownload, stamp, readFileText, toast, uid, safeName } from '../util.js';
 import { ic } from '../icons.js';
@@ -7,6 +7,7 @@ import { APP_VERSION } from '../config.js';
 import { checkForUpdate, resetAppCache, applyUpdate } from '../pwa.js';
 import { importFiles, folderManager } from './docs.js';
 import { exportDialog } from './exportDialog.js';
+import { sendDialog } from './sendDialog.js';
 import { suggestEn, suggestTr } from '../lexicon.js';
 
 const sw = (k, label, on, hint = '') => `<label class="switch"><input type="checkbox" data-sw="${k}" ${on ? 'checked' : ''}><i></i><span>${esc(label)}${hint ? `<small>${esc(hint)}</small>` : ''}</span></label>`;
@@ -27,7 +28,7 @@ const helpItems = () => [
 function updatesHelp() {
   const m = openModal({ title: LL('איך שולחים עדכוני קטלוג למנהל', 'How to send catalog updates to the manager'), wide: true,
     content: `<ol style="line-height:1.7;padding-inline-start:20px"><li>${esc(LL('לוחצים על "שלח עדכוני קטלוג למנהל".', 'Tap "Send catalog updates to manager".'))}</li>
-      <li>${esc(LL('בטלפון נפתח תפריט השיתוף. בוחרים אפליקציה: Gmail או Outlook (נפתח מייל חדש והקובץ כבר מצורף), וואטסאפ, או כל אפליקציה אחרת.', 'On a phone the share menu opens. Choose an app: Gmail or Outlook (a new email opens with the file already attached), WhatsApp, or any other app.'))}</li>
+      <li>${esc(LL('נפתח חלון עם "שיתוף" ו"הורדה". בלחיצה על "שיתוף" נפתח תפריט השיתוף של המכשיר. בוחרים אפליקציה: Gmail או Outlook (נפתח מייל חדש והקובץ כבר מצורף), וואטסאפ, או כל אפליקציה אחרת.', 'A window opens with "Share" and "Download". Tapping "Share" opens the device share menu. Choose an app: Gmail or Outlook (a new email opens with the file already attached), WhatsApp, or any other app.'))}</li>
       <li>${esc(LL('במייל: מדביקים בשדה "אל" את הכתובת שלמטה ושולחים.', 'In email: paste the address below into the "To" field and send.'))}</li>
       <li>${esc(LL('במחשב אין תפריט שיתוף: הקובץ יורד למחשב ויש לצרף אותו ידנית להודעה.', 'A computer has no share menu: the file is downloaded and you attach it to your message manually.'))}</li></ol>
     <div class="mail"><b>${MANAGER_EMAIL}</b><button class="btn sm" data-copy>${esc(LL('העתק כתובת', 'Copy address'))}</button></div>
@@ -48,22 +49,22 @@ export function render(root, { rerender }) {
     <section class="card sec"><h2>${ic('search', 20)} ${esc(t('smart_search'))}</h2>
       ${sw('synOn', t('use_synonyms'), c.synOn, t('use_synonyms_hint'))}${sw('fuzzy', t('use_fuzzy'), c.fuzzy, t('use_fuzzy_hint'))}
       ${worker ? '' : `<div class="btnrow wrap"><button class="btn" id="syn">${ic('list', 18)} ${esc(t('manage_synonyms'))}</button></div>`}</section>
-    ${worker ? '' : `<section class="card sec"><h2>${ic('sliders', 20)} ${esc(t('lists'))}</h2><div class="btnrow wrap">
+    ${worker ? '' : `<section class="card sec"><h2>${ic('sliders', 20)} ${esc(t('lists'))}</h2><div class="btnrow g2">
       <button class="btn" data-list="cats">${esc(t('categories'))}</button><button class="btn" data-list="units">${esc(t('units'))}</button><button class="btn" data-list="sites">${esc(t('sites'))}</button><button class="btn" id="fld">${ic('folder', 16)} ${esc(t('folders'))}</button></div></section>`}
     <section class="card sec"><h2>${ic('download', 20)} ${esc(t('data'))} <button class="qmark" id="helpBtn" type="button" aria-label="${esc(LL('עזרה', 'Help'))}">?</button></h2>
       <div id="helpBox" hidden><p class="hint">${esc(LL('לחיצה על כפתור פותחת הסבר מפורט, ולחיצה נוספת סוגרת.', 'Tap a button to open its detailed explanation, tap again to close.'))}</p>${helpItems().map(([k, label, txt]) => `<button class="btn hbtn" type="button" data-h="${k}"><span>${esc(label)}</span><span>▾</span></button><div class="hbody" hidden>${esc(txt)}</div>`).join('')}</div>
       <p class="hint">${esc(t('last_backup'))}: <b>${c.lastBackup ? esc(fmtDateTime(c.lastBackup, c.lang)) : esc(t('never'))}</b></p>
-      <div class="btnrow wrap"><button class="btn" id="bkMenu" type="button">${ic('download', 18)} ${esc(LL('גיבוי מלא', 'Full backup'))} ▾</button><button class="btn" id="rs" type="button">${ic('upload', 18)} ${esc(t('restore'))}</button></div>
-      <div class="btnrow wrap" id="bkSub" hidden style="margin-top:6px"><button class="btn" id="bk" type="button">${ic('download', 16)} ${esc(LL('הורדה', 'Download'))}</button><button class="btn" id="bks" type="button">${ic('share', 16)} ${esc(LL('שליחה', 'Send'))}</button></div>
+      <div class="btnrow g2"><button class="btn" id="bkMenu" type="button">${ic('download', 18)} ${esc(LL('גיבוי מלא', 'Full backup'))} ▾</button><button class="btn" id="rs" type="button">${ic('upload', 18)} ${esc(t('restore'))}</button></div>
+      <div class="btnrow g2" id="bkSub" hidden style="margin-top:8px"><button class="btn" id="bk" type="button">${ic('download', 16)} ${esc(LL('הורדה', 'Download'))}</button><button class="btn" id="bks" type="button">${ic('share', 16)} ${esc(LL('שליחה', 'Send'))}</button></div>
       <input type="file" id="rsf" accept=".json,application/json,.txt,text/plain" hidden><input type="file" id="impf" accept=".json,application/json,.txt,text/plain" multiple hidden>
-      <div class="btnrow wrap" style="margin-top:10px"><button class="btn" id="catSend">${esc(LL('שלח קטלוג (קובץ)', 'Send catalog (file)'))}</button><button class="btn" id="catGet">${esc(LL('קבל קטלוג מקובץ', 'Load catalog from file'))}</button><button class="btn danger" id="catReset">${esc(LL('שחזור קטלוג לברירת מחדל', 'Restore default catalog'))}</button></div>
+      <div class="btnrow g2" style="margin-top:10px"><button class="btn" id="catSend">${esc(LL('שלח קטלוג (קובץ)', 'Send catalog (file)'))}</button><button class="btn" id="catGet">${esc(LL('קבל קטלוג מקובץ', 'Load catalog from file'))}</button><button class="btn danger span2" id="catReset">${esc(LL('שחזור קטלוג לברירת מחדל', 'Restore default catalog'))}</button></div>
       <p class="hint">${esc(LL('הקטלוג הוא כל הפריטים כולל התמונות שלהם. ספירות והזמנות לא נשלחות ולא נמחקות.', 'The catalog is all items including their photos. Counts and orders are never sent or deleted.'))}</p>
-      <div class="btnrow wrap"><button class="btn" id="expcat">${ic('table', 18)} ${esc(t('export_catalog'))}</button><button class="btn" id="imp">${ic('upload', 18)} ${esc(t('import_files'))}</button><button class="btn" id="hist">${ic('history', 18)} ${esc(t('history'))}</button></div>
+      <div class="btnrow g2"><button class="btn" id="expcat">${ic('table', 18)} ${esc(t('export_catalog'))}</button><button class="btn" id="imp">${ic('upload', 18)} ${esc(t('import_files'))}</button><button class="btn span2" id="hist">${ic('history', 18)} ${esc(t('history'))}</button></div>
       <div class="updbox"><p class="hint">${esc(LL(`הוספת או תיקנת פריטים ותמונות? שלח אותם למנהל: ${pendingUpdates().length} פריטים מחכים לשליחה.`, `Added or fixed items and photos? Send them to the manager: ${pendingUpdates().length} items waiting.`))}</p>
-        <div class="btnrow wrap"><button class="btn" id="updSend" type="button">${ic('share', 18)} ${esc(LL('שלח עדכוני קטלוג למנהל', 'Send catalog updates to manager'))}</button><button class="qmark" id="updHelp" type="button" aria-label="${esc(LL('הסבר', 'Explain'))}">?</button><button class="btn" id="updLog" type="button">${ic('history', 18)} ${esc(LL('יומן שליחות', 'Send log'))}</button></div></div></section>
+        <div class="updgrid"><button class="btn" id="updSend" type="button">${ic('share', 18)} ${esc(LL('שלח עדכוני קטלוג למנהל', 'Send catalog updates to manager'))}</button><button class="qmark" id="updHelp" type="button" aria-label="${esc(LL('הסבר', 'Explain'))}">?</button><button class="btn" id="updLog" type="button">${ic('history', 18)} ${esc(LL('יומן שליחות', 'Send log'))}</button></div></div></section>
     <section class="card sec"><h2>${ic('refresh', 20)} ${esc(t('app'))}</h2>
       <p>${esc(t('version'))}: <b class="mono">${APP_VERSION}</b> <span id="updMsg" class="hint"></span></p>
-      <div class="btnrow wrap"><button class="btn primary" id="upd">${ic('refresh', 18)} ${esc(t('check_update'))}</button><button class="btn" id="rc">${esc(t('reset_cache'))}</button><button class="btn" id="instApp">${ic('download', 18)} ${esc(c.lang === 'he' ? 'התקן כאפליקציה' : 'Install as app')}</button></div>
+      <div class="btnrow g2"><button class="btn primary span2" id="upd">${ic('refresh', 18)} ${esc(t('check_update'))}</button><button class="btn" id="rc">${esc(t('reset_cache'))}</button><button class="btn" id="instApp">${ic('download', 18)} ${esc(c.lang === 'he' ? 'התקן כאפליקציה' : 'Install as app')}</button></div>
       <p class="hint">${esc(t('update_safe'))}</p></section></div>`;
   const $ = s => root.querySelector(s);
   $('#lang').onclick = async e => { const b = e.target.closest('[data-l]'); if (b) { await setLang(b.dataset.l); } };
@@ -80,9 +81,10 @@ export function render(root, { rerender }) {
   $('#updHelp').onclick = updatesHelp;
   $('#bk').onclick = async () => { download(await stamped(), `backup_${stamp()}.json`); await log('backup', 'download'); toast(t('downloaded')); rerender(); };
   $('#updSend').onclick = async () => {
-    const he = S.cfg.lang === 'he', n = pendingUpdates().length; if (!n) { toast(he ? 'אין עדכונים חדשים לשליחה' : 'No new updates to send'); return; }
-    const items = pendingUpdates(), r = await shareOrDownload(await exportUpdatesBlob(items), `updates_${safeName(S.cfg.worker || 'worker')}_${stamp()}.json`, he ? 'עדכוני קטלוג' : 'Catalog updates');
-    if (r === 'cancel') return; await markUpdatesSent(items); await log('updates', `sent ${n}`); if (r === 'downloaded') toast(t('downloaded')); else toast(he ? '✓ העדכונים נשלחו' : '✓ Updates sent'); rerender();
+    const he = S.cfg.lang === 'he', items = pendingUpdates(); if (!items.length) { toast(he ? 'אין עדכונים חדשים לשליחה' : 'No new updates to send'); return; }
+    toast(he ? 'מכין את הקובץ…' : 'Preparing the file…', 6000);
+    const blob = await exportUpdatesBlob(items), r = await sendDialog({ blob, name: `updates_${safeName(S.cfg.worker || 'worker')}_${stamp()}.json`, title: he ? 'שליחת עדכוני קטלוג' : 'Send catalog updates', info: he ? `${items.length} פריטים (עם התמונות שלהם) מוכנים לשליחה.` : `${items.length} items (with their photos) are ready to send.`, email: MANAGER_EMAIL });
+    if (!r) return; await markUpdatesSent(items); await log('updates', `sent ${items.length}`); toast(r === 'shared' ? (he ? '✓ העדכונים נשלחו' : '✓ Updates sent') : t('downloaded')); rerender();
   };
   $('#updLog').onclick = updatesLog;
   $('#bks').onclick = async () => { await shareOrDownload(await stamped(), `backup_${stamp()}.json`, t('backup_full')); await log('backup', 'share'); rerender(); };
@@ -148,7 +150,7 @@ export function listEditor(kind) {
 // ---- global synonym groups ----
 export function synonymsManager() {
   const draw = () => {
-    m.$('.mbody').innerHTML = `<p class="hint">${esc(t('syn_hint'))}</p><div class="list">${S.groups.map(g => `<div class="lrow" data-id="${g.id}"><input class="grow" data-w value="${esc(g.words.join(', '))}"><button class="icon-btn danger" data-rm>${ic('trash', 18)}</button></div>`).join('')}</div><div class="btnrow"><button class="btn" data-add>${ic('plus', 16)} ${esc(t('add'))}</button></div>`;
+    m.$('.mbody').innerHTML = `<p class="hint">${esc(t('syn_hint'))}</p><div class="list">${S.groups.map(g => `<div class="lrow" data-id="${g.id}"><input class="grow" data-w value="${esc(g.words.join(', '))}"><button class="icon-btn danger" data-rm>${ic('trash', 18)}</button></div>`).join('')}</div><div class="stickyadd"><button class="btn primary" data-add>${ic('plus', 16)} ${esc(t('add'))}</button></div>`;
     m.$$('.lrow').forEach(r => { const g = S.groups.find(x => x.id === r.dataset.id);
       r.querySelector('[data-w]').onchange = async e => { g.words = e.target.value.split(/[,،;]/).map(s => s.trim()).filter(Boolean); await saveList('groups'); };
       r.querySelector('[data-rm]').onclick = async () => { S.groups = S.groups.filter(x => x.id !== g.id); await saveList('groups'); draw(); }; });
@@ -156,16 +158,29 @@ export function synonymsManager() {
   };
   const m = openModal({ title: t('manage_synonyms'), wide: true, content: '' }); draw();
 }
-// log of every "send catalog updates": date, how many items, and a button to send the same updates again (to anyone)
+// log of every "send catalog updates": date, how many items; send one again, or tick several (and/or the not-yet-sent updates) and send them together as ONE file
 function updatesLog() {
-  const he = S.cfg.lang === 'he', log = S.cfg.updLog || [];
-  const m = openModal({ title: he ? 'יומן שליחות' : 'Send log', wide: true, content: `<p class="hint">${esc(he ? 'כל שליחה של עדכוני קטלוג נשמרת כאן. "שלח שוב" שולח אותם מחדש, גם למישהו אחר, עם הגרסה העדכנית של אותם פריטים.' : 'Every catalog-updates send is kept here. "Send again" sends the same items again, also to someone else, with their current version.')}</p><div class="list">${log.map((e, i) => `<div class="lrow"><span class="grow"><b>${esc(fmtDateTime(e.ts, S.cfg.lang))}</b> · ${e.n} ${esc(he ? 'פריטים' : 'items')}<br><small>${esc((e.names || []).join(', '))}${e.n > 3 ? '…' : ''}</small></span><button class="btn sm" data-re="${i}">${ic('share', 14)} ${esc(he ? 'שלח שוב' : 'Send again')}</button></div>`).join('') || `<p class="hint">${esc(he ? 'עדיין לא נשלחו עדכונים' : 'Nothing sent yet')}</p>`}</div>` });
-  m.$$('[data-re]').forEach(b => b.onclick = async () => {
-    const e = log[+b.dataset.re], items = (e.ids || []).map(id => S.byId.get(id)).filter(Boolean);
+  const he = S.cfg.lang === 'he', log = S.cfg.updLog || [], pend = pendingUpdates();
+  const name = () => `updates_${safeName(S.cfg.worker || 'worker')}_${stamp()}.json`;
+  const m = openModal({ title: he ? 'יומן שליחות' : 'Send log', wide: true, content: `<p class="hint">${esc(he ? 'כל שליחה של עדכוני קטלוג נשמרת כאן. \"שלח שוב\" שולח אותה מחדש (גם למישהו אחר) עם הגרסה העדכנית של הפריטים. אפשר גם לסמן כמה שליחות (ואת העדכונים שטרם נשלחו) ולשלוח את כולן יחד בקובץ אחד.' : 'Every catalog-updates send is kept here. \"Send again\" sends it again (also to someone else) with the current version of the items. You can also tick several sends (and the not-yet-sent updates) and send them all together as ONE file.')}</p>
+    <div class="btnrow wrap" style="margin-bottom:6px"><button class="btn sm" type="button" data-all>${esc(he ? 'סמן הכול' : 'Select all')}</button><button class="btn sm primary" type="button" data-comb disabled>${ic('share', 14)} <span>${esc(he ? 'שלח את המסומנים בקובץ אחד' : 'Send selected as one file')}</span></button></div>
+    <div class="list">${pend.length ? `<label class="lrow logrow"><input type="checkbox" data-p><span class="grow"><b>${esc(he ? 'עדכונים שטרם נשלחו' : 'Not sent yet')}</b> · ${pend.length} ${esc(he ? 'פריטים' : 'items')}<br><small>${esc(pend.slice(0, 3).map(i => i.he || i.en || '').join(', '))}${pend.length > 3 ? '…' : ''}</small></span></label>` : ''}
+    ${log.map((e, i) => `<div class="lrow logrow"><label class="grow" style="display:flex;gap:10px;align-items:center;cursor:pointer"><input type="checkbox" data-c="${i}"><span class="grow"><b>${esc(fmtDateTime(e.ts, S.cfg.lang))}</b> · ${e.n} ${esc(he ? 'פריטים' : 'items')}<br><small>${esc((e.names || []).join(', '))}${e.n > 3 ? '…' : ''}</small></span></label><button class="btn sm" data-re="${i}">${ic('share', 14)} ${esc(he ? 'שלח שוב' : 'Send again')}</button></div>`).join('') || (pend.length ? '' : `<p class="hint">${esc(he ? 'עדיין לא נשלחו עדכונים' : 'Nothing sent yet')}</p>`)}</div>` });
+  const boxes = () => m.$$('input[type=checkbox]'), refresh = () => { m.$('[data-comb]').disabled = !boxes().some(b => b.checked); };
+  m.$('.mbody').addEventListener('change', refresh);
+  m.$('[data-all]').onclick = () => { const on = boxes().some(b => !b.checked); boxes().forEach(b => { b.checked = on; }); refresh(); };
+  const send = async (items, title, markPending) => {
     if (!items.length) return toast(he ? 'הפריטים האלה כבר לא קיימים' : 'Those items no longer exist');
-    const r = await shareOrDownload(await exportUpdatesBlob(items), `updates_${safeName(S.cfg.worker || 'worker')}_${stamp()}.json`, he ? 'עדכוני קטלוג' : 'Catalog updates');
-    if (r === 'downloaded') toast(t('downloaded')); else if (r !== 'cancel') toast(he ? '✓ נשלח שוב' : '✓ Sent again');
-  });
+    toast(he ? 'מכין את הקובץ…' : 'Preparing the file…', 6000);
+    const blob = await exportUpdatesBlob(items), r = await sendDialog({ blob, name: name(), title, info: he ? `${items.length} פריטים (עם התמונות שלהם) בקובץ אחד.` : `${items.length} items (with their photos) in one file.`, email: MANAGER_EMAIL });
+    if (!r) return; if (markPending) await markUpdatesSent(pend); toast(r === 'shared' ? (he ? '✓ נשלח' : '✓ Sent') : t('downloaded'));
+  };
+  m.$$('[data-re]').forEach(b => b.onclick = () => send(itemsFromIds(log[+b.dataset.re].ids || []), he ? 'שליחה חוזרת' : 'Send again', false));
+  m.$('[data-comb]').onclick = () => {
+    const ids = [], withPend = !!m.$('[data-p]')?.checked; if (withPend) ids.push(...pend.map(i => i.id));
+    m.$$('[data-c]').forEach(b => { if (b.checked) ids.push(...(log[+b.dataset.c].ids || [])); });
+    send(itemsFromIds(ids), he ? 'שליחה מאוחדת' : 'Combined send', withPend);
+  };
 }
 function historyView() {
   const icon = { 'item+': '＋', 'item~': '✎', 'item-': '✕' };

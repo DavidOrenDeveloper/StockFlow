@@ -54,3 +54,8 @@ export const bidi = x => String(x ?? '').split(/([A-Za-z0-9](?:[A-Za-z0-9.,:;/\\
   }
   return `<bdi dir="ltr">${esc(p)}</bdi>${esc(tail)}`;
 }).join('');
+/** copy text to the clipboard (with a fallback for browsers/pages where navigator.clipboard is unavailable) */
+export async function copyText(txt) {
+  try { await navigator.clipboard.writeText(txt); return true; } catch (e) { /* fall through */ }
+  try { const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch (e) { return false; }
+}

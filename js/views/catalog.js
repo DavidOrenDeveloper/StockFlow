@@ -1,6 +1,6 @@
-import { S, nm, unitOf, imgOf, runSearch, newItem, bulkItems, deleteItem } from '../store.js';
+import { S, nm, unitOf, imgOf, runSearch, newItem, bulkItems, deleteItem, orderedCats } from '../store.js';
 import { t } from '../i18n.js';
-import { esc, debounce, toast, bidi } from '../util.js';
+import { esc, debounce, toast, bidi, copyText } from '../util.js';
 import { ic } from '../icons.js';
 import { zoomImg, confirmDlg, menu } from '../modal.js';
 import { editItem } from './itemEditor.js';
@@ -24,7 +24,7 @@ export function render(root) {
     return `<div class="card item ${on ? 'sel' : ''}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}" aria-label="${esc(t('zoom'))}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 26)}${u ? `<i>${ic('zoom', 14)}</i>` : ''}</button>
       <div class="info"><div class="n1">${bidi(nm(it))}</div>${names2(it).map(n => `<div class="n2">${esc(n)}</div>`).join('')}
-        <div class="tags">${it.sku ? `<span class="tag mono">${esc(it.sku)}</span>` : `<span class="tag ghost">${esc(t('no_sku'))}</span>`}<span class="tag">${esc(nm(unitOf(it.unit)))}</span>${badge}</div></div>
+        <div class="tags">${it.sku ? `<span class="tag mono copyable" data-sku="${esc(it.sku)}" title="${esc(S.cfg.lang === 'he' ? 'לחיצה מעתיקה את המק״ט' : 'Tap to copy the SKU')}">${esc(it.sku)}</span>` : `<span class="tag ghost">${esc(t('no_sku'))}</span>`}<span class="tag">${esc(nm(unitOf(it.unit)))}</span>${badge}</div></div>
       ${selMode ? `<span class="checkmark">${on ? ic('check', 18) : ''}</span>` : (worker() ? '' : `<button class="icon-btn" data-edit="${it.id}" aria-label="${esc(t('edit'))}">${ic('edit', 18)}</button>`)}</div>`;
   }
   const badgeFor = r => r.by === 'sku' ? `<span class="tag b-sku">${esc(t('sku'))}</span>` : r.viaSyn || r.by === 'syn' ? `<span class="tag b-syn">${esc(t('synonym'))}</span>` : '';
@@ -37,7 +37,7 @@ export function render(root) {
       if (ap.length) html += `<h3 class="grp soft">${esc(t('similar_matches'))} <b>${ap.length}</b></h3><div class="grid">${ap.map(x => card(x.it)).join('')}</div>`;
       if (!total) html = `<div class="empty">${ic('search', 36)}<p>${esc(t('no_results'))}</p></div>`;
     } else {
-      for (const c of S.cats) {
+      for (const c of orderedCats()) {
         const its = S.items.filter(i => i.cat === c.id && inCat(i)); if (!its.length) continue; total += its.length;
         html += `<h3 class="grp">${esc(nm(c))} <b>${its.length}</b></h3><div class="grid">${its.map(i => card(i)).join('')}</div>`;
       }
@@ -49,7 +49,7 @@ export function render(root) {
     drawSel();
   }
   function drawCats() {
-    $('#cats').innerHTML = `<button class="pill ${!cat ? 'on' : ''}" data-c="">${esc(t('all'))}</button>` + S.cats.map(c => `<button class="pill ${cat === c.id ? 'on' : ''}" data-c="${c.id}">${esc(nm(c))}</button>`).join('');
+    $('#cats').innerHTML = `<button class="pill ${!cat ? 'on' : ''}" data-c="">${esc(t('all'))}</button>` + orderedCats().map(c => `<button class="pill ${cat === c.id ? 'on' : ''}" data-c="${c.id}">${esc(nm(c))}</button>`).join('');
   }
   function drawSel() {
     const bar = $('#selbar'); bar.hidden = !selMode; root.classList.toggle('selecting', selMode);
@@ -66,7 +66,8 @@ export function render(root) {
   $('#cats').onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; cat = b.dataset.c; drawCats(); draw(); };
   $('#selBtn').onclick = () => setMode(!selMode);
   const addBtn = $('#addBtn'); if (addBtn) addBtn.onclick = () => editItem(newItem(), { isNew: true, onDone: () => { drawCats(); draw(); } });
-  $('#list').onclick = e => {
+  $('#list').onclick = async e => {
+    const sk = !selMode && e.target.closest('[data-sku]'); if (sk) { const ok = await copyText(sk.dataset.sku); toast(ok ? (S.cfg.lang === 'he' ? `המק״ט ${sk.dataset.sku} הועתק` : `SKU ${sk.dataset.sku} copied`) : sk.dataset.sku); return; }
     const z = e.target.closest('[data-zoom]'); if (z) { const it = S.byId.get(z.dataset.zoom); zoomImg(imgOf(it), nm(it)); return; }
     const ed = e.target.closest('[data-edit]'); if (ed) { editItem(S.byId.get(ed.dataset.edit), { onDone: draw }); return; }
     const c = e.target.closest('.card.item'); if (!c) return;

@@ -50,20 +50,24 @@ export function render(root, { type = 'all' } = {}) {
       <h1 class="ptitle">${esc(type === 'count' ? t('counts') : type === 'order' ? t('orders') : t('files'))}</h1><span class="grow"></span>
       <button class="btn" id="imp">${ic('upload', 18)} <span>${esc(t('import_files'))}</span></button>
       ${type === 'all' ? `<button class="btn" id="fld">${ic('folder', 18)}</button>` : ''}
-      ${type === 'all' ? `<button class="btn primary" id="nw">${ic('plus', 18)} <span>${S.cfg.lang === 'he' ? 'חדש' : 'New'}</span></button>`
-        : `<button class="btn primary" id="new">${ic('plus', 18)} <span>${esc(type === 'count' ? t('new_count') : t('new_order'))}</span></button>`}
+      <button class="btn" id="fltBtn" type="button">${ic('sliders', 18)} <span>${S.cfg.lang === 'he' ? 'סינון ומיון' : 'Filter & sort'}</span><i class="dot" id="fltDot" hidden></i></button>
       <input type="file" id="file" accept=".json,application/json" multiple hidden></div>
-    <div class="filters" id="filters"></div><div id="list"></div></div>`;
+    ${type === 'all' ? `<button class="btn primary bignew" id="nw">${ic('plus', 22)} <span>${S.cfg.lang === 'he' ? 'חדש' : 'New'}</span></button>`
+        : `<button class="btn primary bignew" id="new">${ic('plus', 22)} <span>${esc(type === 'count' ? t('new_count') : t('new_order'))}</span></button>`}
+    <div class="filters" id="filters" hidden></div><div id="list"></div></div>`;
   const $ = s => root.querySelector(s);
   const docs = () => S.docs.filter(d => (type === 'all' || d.type === type) && (!f.status || d.status === f.status) && (!f.worker || (d.worker || '') === f.worker) && (!f.site || d.site === f.site) &&
     (!f.q || [d.worker, d.note, nm(siteOf(d.site), 'he')].join(' ').toLowerCase().includes(f.q.toLowerCase()))).sort((a, b) => (b.date + b.updatedAt).localeCompare(a.date + a.updatedAt));
   const sel = (k, label, opts) => `<label class="sel"><span>${esc(label)}</span><select data-f="${k}"><option value="">${esc(t('all'))}</option>${opts.map(o => `<option value="${esc(o[0])}" ${f[k] === o[0] ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>`;
+  const defGroup = type === 'all' ? 'folder' : 'worker';
+  const activeN = () => ['status', 'worker', 'site', 'q'].filter(k => f[k]).length + (f.group !== defGroup ? 1 : 0);
   function drawFilters() {
+    $('#fltDot').hidden = !activeN(); $('#fltBtn').classList.toggle('on', !$('#filters').hidden);
     const workers = [...new Set(S.docs.map(d => d.worker || ''))].filter(Boolean).sort();
     const sts = [...new Set(Object.values(DOC_STATUS).flat())];
-    $('#filters').innerHTML = `<div class="searchbox sm">${ic('search', 16)}<input data-f="q" value="${esc(f.q)}" placeholder="${esc(t('filter_ph'))}"></div>
+    $('#filters').innerHTML = `<div class="searchbox sm fwide">${ic('search', 16)}<input data-f="q" value="${esc(f.q)}" placeholder="${esc(t('filter_ph'))}"></div>
       ${sel('status', t('status'), sts.map(s => [s, t('st_' + s)]))}${sel('worker', t('worker'), workers.map(w => [w, w]))}${sel('site', t('site'), S.sites.map(s => [s.id, nm(s, 'he')]))}
-      <label class="sel"><span>${esc(t('group_by'))}</span><select data-f="group">${['folder', 'worker', 'site', 'status', 'month', 'none'].map(g => `<option value="${g}" ${f.group === g ? 'selected' : ''}>${esc(t('g_' + g))}</option>`).join('')}</select></label>`;
+      <label class="sel"><span>${esc(t('group_by'))}</span><select data-f="group">${['folder', 'worker', 'site', 'status', 'month', 'none'].map(g => `<option value="${g}" ${f.group === g ? 'selected' : ''}>${esc(t('g_' + g))}</option>`).join('')}</select></label>${activeN() ? `<button class="btn fwide" type="button" data-clear>${S.cfg.lang === 'he' ? 'נקה סינון' : 'Clear filters'}</button>` : ''}`;
   }
   const keyOf = d => f.group === 'folder' ? (S.folders.find(x => x.id === d.folder)?.name || t('no_folder')) : f.group === 'worker' ? (d.worker || t('no_worker')) : f.group === 'site' ? nm(siteOf(d.site), 'he') : f.group === 'status' ? t('st_' + d.status) : f.group === 'month' ? d.date.slice(0, 7) : '';
   function row(d) {
@@ -79,7 +83,9 @@ export function render(root, { type = 'all' } = {}) {
     const groups = new Map(); list.forEach(d => { const k = keyOf(d); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(d); });
     $('#list').innerHTML = [...groups].map(([k, ds]) => `${k ? `<h3 class="grp">${ic('folder', 16)} ${esc(k)} <b>${ds.length}</b></h3>` : ''}<div class="grid wide">${ds.map(row).join('')}</div>`).join('');
   }
-  $('#filters').addEventListener('input', e => { const k = e.target.dataset.f; if (!k) return; f[k] = e.target.value; if (k !== 'q') drawFilters(); draw(); if (k === 'q') return; });
+  $('#fltBtn').onclick = () => { const b = $('#filters'); b.hidden = !b.hidden; drawFilters(); };
+  $('#filters').addEventListener('click', e => { if (!e.target.closest('[data-clear]')) return; Object.assign(f, { status: '', worker: '', site: '', q: '', group: defGroup }); drawFilters(); draw(); });
+  $('#filters').addEventListener('input', e => { const k = e.target.dataset.f; if (!k) return; f[k] = e.target.value; if (k !== 'q') drawFilters(); else $('#fltDot').hidden = !activeN(); draw(); if (k === 'q') return; });
   $('#filters').addEventListener('change', e => { const k = e.target.dataset.f; if (k && k !== 'q') { f[k] = e.target.value; draw(); } });
   const go = d => navigate('#/doc/' + d.id);
   const mk = tp => () => createDocDialog(tp, go);
@@ -109,7 +115,7 @@ export function render(root, { type = 'all' } = {}) {
 export function folderManager(onDone) {
   const draw = () => {
     m.$('.mbody').innerHTML = `<p class="hint">${esc(t('folders_hint'))}</p><div class="list">${S.folders.map(f => `<div class="lrow"><span class="grow">${ic('folder', 16)} ${esc(f.name)} <small>(${esc(f.type === 'count' ? t('count') : f.type === 'order' ? t('order') : t('all'))})</small></span><button class="icon-btn" data-ed="${f.id}">${ic('edit', 18)}</button><button class="icon-btn danger" data-rm="${f.id}">${ic('trash', 18)}</button></div>`).join('')}</div>
-      <div class="btnrow wrap"><button class="btn" data-add="count">${ic('plus', 16)} ${esc(t('count'))}</button><button class="btn" data-add="order">${ic('plus', 16)} ${esc(t('order'))}</button><button class="btn" data-add="any">${ic('plus', 16)} ${esc(t('all'))}</button></div>`;
+      <div class="btnrow g3"><button class="btn" data-add="count">${ic('plus', 16)} ${esc(t('count'))}</button><button class="btn" data-add="order">${ic('plus', 16)} ${esc(t('order'))}</button><button class="btn" data-add="any">${ic('plus', 16)} ${esc(t('all'))}</button></div>`;
     m.$$('[data-add]').forEach(b => b.onclick = async () => { const n = await promptDlg(t('folder_name'), ''); if (n) { S.folders.push({ id: uid('f'), name: n, type: b.dataset.add }); await saveList('folders'); draw(); } });
     m.$$('[data-ed]').forEach(b => b.onclick = async () => { const f = S.folders.find(x => x.id === b.dataset.ed), n = await promptDlg(t('folder_name'), f.name); if (n) { f.name = n; await saveList('folders'); draw(); } });
     m.$$('[data-rm]').forEach(b => b.onclick = async () => { if (await confirmDlg(t('confirm_delete_folder'), { danger: true, ok: t('delete') })) { const id = b.dataset.rm; S.folders = S.folders.filter(x => x.id !== id); for (const d of S.docs.filter(d => d.folder === id)) { d.folder = ''; await saveDoc(d, { quiet: true }); } await saveList('folders'); draw(); } });

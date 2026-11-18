@@ -134,3 +134,21 @@ html{overflow-x:hidden}body{overflow-x:clip;max-width:100%}
 .urow .fld>span{font-size:14px;font-weight:700;color:var(--text)}
 .urow .fld input{font-size:20px;font-weight:800;border:2px solid var(--primary);background:var(--card);min-height:46px}
 .ucol{min-width:0}.uact{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+
+/* v1.7.0: even button grids (settings), filter panel behind a button, big "new" button, sticky add, copyable SKU */
+.btnrow.g2,.btnrow.g3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch}
+@media(min-width:641px){.btnrow.g3{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.btnrow.g2>.btn,.btnrow.g3>.btn{width:100%;min-height:46px;white-space:normal;text-align:center;line-height:1.25;padding:6px 10px}
+.btnrow.g2>.span2,.btnrow.g3>.span2{grid-column:1/-1}
+.sec .btnrow.g2+.btnrow,.sec .hint+.btnrow.g2,.sec .btnrow.g2+.hint{margin-top:8px}
+.updgrid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.updgrid .btn{min-height:46px;white-space:normal;line-height:1.25;text-align:center}.updgrid #updLog{grid-column:1/-1}
+.bignew{width:100%;min-height:54px;font-size:17px;font-weight:700;margin:6px 0 4px;border-radius:12px}
+#fltBtn{position:relative}.dot{position:absolute;top:5px;inset-inline-end:5px;width:9px;height:9px;border-radius:50%;background:var(--danger)}
+.filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:end;margin:6px 0;padding:10px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.filters .fwide{grid-column:1/-1}.filters .searchbox{min-width:0}
+.filters .sel{min-width:0}.filters .sel span{padding-inline:4px;font-weight:600}.filters .sel select{width:100%;min-width:0}
+.stickyadd{position:sticky;bottom:-14px;z-index:2;background:var(--card);padding:10px 0 14px;margin:8px 0 -14px;border-top:1px solid var(--line)}.stickyadd .btn{width:100%}
+.tag.copyable{cursor:copy}.tag.copyable:active{background:var(--primary-soft)}
+.logrow input[type=checkbox]{width:20px;height:20px;accent-color:var(--primary);flex:none}
+label.logrow{display:flex;gap:10px;align-items:center;cursor:pointer}

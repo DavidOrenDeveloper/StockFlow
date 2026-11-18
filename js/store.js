@@ -20,6 +20,8 @@ export function nm(e, lg = S.cfg.lang) {
   if (lg === 'tr') return e.tr || (e.he ? suggestTr(e.he) : '') || e.en || '';
   return e.he || e.en || e.tr || '';
 }
+// category order used everywhere (chips, headings): power tools right after "All"
+export const orderedCats = () => [...S.cats.filter(c => c.id === 'c_etools'), ...S.cats.filter(c => c.id !== 'c_etools')];
 export const catOf = id => S.cats.find(c => c.id === id);
 export const unitOf = id => S.units.find(u => u.id === id);
 export const siteOf = id => S.sites.find(s => s.id === id);
@@ -52,6 +54,7 @@ export async function init() {
   await applyUnitFix();
   await applyShapirImport();
   await applyExtra();
+  await applyUpdate170();
   await applyRemovals();
 }
 // One-time: cables/wires/conduits etc. were all 'unit'; set them to meters (only where the user did not change the unit).
@@ -83,22 +86,29 @@ async function applyShapirImport() {
     S.cfg.shapirAll150 = true; await db.kvSet('cfg', S.cfg);
   } catch (e) { /* offline: retry next start */ }
 }
-// One-time per device: the additions made by the owner after the first release (new items + their photos, corrected names/SKUs, photos for some Shapir items).
+// One-time per device: additions made by the owner after a release (new items + their photos, corrected names/SKUs/categories, photos, English/Latin names, synonym groups).
 // Never overwrites anything the user changed on this device: a field is replaced only if it still has the old default value.
-async function applyExtra() {
-  if (S.cfg.extra163) return;
+// Used for data/extra.json (flag extra163) and data/update170.json (flag upd170).
+async function applyPack(flag, file) {
+  if (S.cfg[flag]) return;
   try {
-    const j = await (await fetch('data/extra.json', { cache: 'no-cache' })).json(), now = new Date().toISOString(), ch = [];
+    const j = await (await fetch(file, { cache: 'no-cache' })).json(), now = new Date().toISOString(), ch = [];
     let catsChanged = false; for (const c of j.cats || []) if (!S.cats.some(x => x.id === c.id)) { S.cats.push({ ...c }); catsChanged = true; }
+    for (const [id, p] of Object.entries(j.catPatch || {})) { const c = catOf(id); if (!c) continue; for (const [k, [from, to]] of Object.entries(p)) if ((c[k] || '') === from) { c[k] = to; catsChanged = true; } }
     if (catsChanged) await db.kvSet('cats', S.cats);
+    let grpChanged = false; for (const g of j.groups || []) if (!S.groups.some(x => x.id === g.id)) { S.groups.push({ ...g }); grpChanged = true; }
+    if (grpChanged) await db.kvSet('groups', S.groups);
     let order = S.items.reduce((m, i) => Math.max(m, i.order || 0), 0);
     for (const it of j.items || []) if (!S.byId.has(it.id) && !(it.sku && S.items.some(x => String(x.sku || '').trim() === it.sku))) { const n = { ...it, order: ++order, imgId: null, createdAt: now, updatedAt: now }; ch.push(n); S.items.push(n); }
     for (const [id, p] of Object.entries(j.patches || {})) { const it = S.byId.get(id); if (!it) continue; let hit = false; for (const [k, [from, to]] of Object.entries(p)) if ((it[k] || '') === from) { it[k] = to; hit = true; } if (hit) { it.updatedAt = now; ch.push(it); } }
+    for (const [id, [en, tr]] of Object.entries(j.fill || {})) { const it = S.byId.get(id); if (!it) continue; let hit = false; if (en && !it.en) { it.en = en; hit = true; } if (tr && !it.tr) { it.tr = tr; hit = true; } if (hit) { it.updatedAt = now; ch.push(it); } }
     for (const [id, url] of Object.entries(j.imgs || {})) { const it = S.byId.get(id); if (it && !it.imgId && !it.imgUrl) { it.imgUrl = url; it.updatedAt = now; ch.push(it); } }
-    if (ch.length) { await db.putMany('items', [...new Set(ch)]); reindex(); await log('catalog', `extra ${ch.length}`); }
-    S.cfg.extra163 = true; await db.kvSet('cfg', S.cfg);
+    if (ch.length) { await db.putMany('items', [...new Set(ch)]); reindex(); await log('catalog', `${flag} ${ch.length}`); }
+    S.cfg[flag] = true; await db.kvSet('cfg', S.cfg);
   } catch (e) { /* offline: retry next start */ }
 }
+const applyExtra = () => applyPack('extra163', 'data/extra.json');
+const applyUpdate170 = () => applyPack('upd170', 'data/update170.json');
 // Removes catalog items listed in data/remove.json (moving quantities already entered in documents to the replacement item).
 async function applyRemovals() {
   if ((S.cfg.removeV || 0) >= 1) return;
@@ -213,7 +223,7 @@ async function replaceCatalog({ items, images, cats, units, groups, sites, reimp
   const uni = (cur, base) => [...base, ...cur.filter(x => !base.some(b => b.id === x.id))];
   await db.kvSet('cats', uni(S.cats, cats)); await db.kvSet('units', uni(S.units, units)); await db.kvSet('groups', uni(S.groups, groups));
   await db.kvSet('sites', [...S.sites, ...sites.filter(x => !S.sites.some(c => c.id === x.id))]);
-  S.cfg.unitFix140 = true; S.cfg.extra163 = true; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
+  S.cfg.unitFix140 = true; S.cfg.extra163 = !reimportShapir; S.cfg.upd170 = !reimportShapir; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
   await init(); emit();
 }
 export async function importCatalog(b) {
@@ -238,6 +248,7 @@ export async function exportUpdatesBlob(items = pendingUpdates()) {
   for (const r of await db.getAll('images')) if (ids.has(r.id)) images.push({ id: r.id, data: await blobToDataURL(r.blob) });
   return new Blob([JSON.stringify({ app: APP_ID, kind: 'updates', appVersion: APP_VERSION, createdAt: new Date().toISOString(), by: S.cfg.worker || '', items, images })], { type: 'application/json' });
 }
+export const itemsFromIds = ids => [...new Set(ids)].map(id => S.byId.get(id)).filter(Boolean);
 export async function markUpdatesSent(items = pendingUpdates()) {   // also writes the send log (date, how many, which items) so it can be re-sent later
   const ts = new Date().toISOString(); S.cfg.updSentAt = ts;
   S.cfg.updLog = [{ ts, ids: items.map(i => i.id), n: items.length, names: items.slice(0, 3).map(i => i.he || i.en || '') }, ...(S.cfg.updLog || [])].slice(0, 40);
