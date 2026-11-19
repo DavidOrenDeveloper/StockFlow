@@ -7,6 +7,12 @@ const P = {
   sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6', copy: 'M9 9h11v11H9zM5 15V5a2 2 0 012-2h10',
   image: 'M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zM8.5 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM21 15l-5-5L5 21', zoom: 'M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-4.3-4.3M11 8v6M8 11h6',
   refresh: 'M21 12a9 9 0 11-3-6.7M21 3v6h-6', file: 'M14 3H6a1 1 0 00-1 1v16a1 1 0 001 1h12a1 1 0 001-1V8zM14 3v5h5', table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14', more: 'M12 6h.01M12 12h.01M12 18h.01',
+  up: 'M6 15l6-6 6 6', down: 'M6 9l6 6 6-6',
   wand: 'M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5', list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', back: 'M15 18l-6-6 6-6', eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z', alert: 'M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z', history: 'M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5M12 7v5l3 2', globe: 'M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18'
 };
 export const ic = (n, s = 20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[n] || ''}"/></svg>`;
+
+// colour pictograms (fixed colours, not currentColor): camera and gallery
+const cI = (s, body) => `<svg class="ic ico" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+export const icCam = (s = 20) => cI(s, '<path d="M8.6 4.5 7.4 6.5H5A2.5 2.5 0 002.5 9v9A2.5 2.5 0 005 20.5h14a2.5 2.5 0 002.5-2.5V9A2.5 2.5 0 0019 6.5h-2.4l-1.2-2z" fill="#2563eb"/><circle cx="12" cy="13" r="4.7" fill="#fff"/><circle cx="12" cy="13" r="3" fill="#1e3a8a"/><circle cx="18" cy="9.3" r="1" fill="#fbbf24"/>');
+export const icGal = (s = 20) => cI(s, '<rect x="2.5" y="4" width="19" height="16" rx="3" fill="#22c55e"/><circle cx="7.6" cy="8.4" r="2" fill="#fde047"/><path d="M2.5 17a3 3 0 003 3h13a3 3 0 003-3v-2.4l-4.5-4.5-3.8 3.8-3.7-3.7L2.5 15z" fill="#166534"/>');

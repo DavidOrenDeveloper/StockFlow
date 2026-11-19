@@ -33,7 +33,7 @@ export function docLines(d, o = {}) {
     };
     const us = d.units?.[r.id] || []; if (!us.length) return [base];
     // power tools: one line per physical tool with ITS photo and ITS MSD number
-    const out = us.map(u => ({ ...base, qty: 1, img: u.img || base.img, he: `${base.he} – מס"ד ${u.msd || '?'}`, en: base.en ? `${base.en} – Serial No. ${u.msd || '?'}` : '', tr: base.tr ? `${base.tr} – MASAD ${u.msd || '?'}` : '' }));
+    const out = us.map(u => ({ ...base, qty: 1, img: u.img || base.img, he: `${base.he} – מס"ד ${u.msd || '?'}`, en: base.en ? `${base.en} – Serial Number ${u.msd || '?'}` : '', tr: base.tr ? `${base.tr} – MASAD ${u.msd || '?'}` : '' }));
     const rest = (r.qty ?? 0) - us.length; if (rest > 0) out.push({ ...base, qty: rest });
     return out;
   });

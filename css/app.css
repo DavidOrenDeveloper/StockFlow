@@ -152,3 +152,16 @@ html{overflow-x:hidden}body{overflow-x:clip;max-width:100%}
 .tag.copyable{cursor:copy}.tag.copyable:active{background:var(--primary-soft)}
 .logrow input[type=checkbox]{width:20px;height:20px;accent-color:var(--primary);flex:none}
 label.logrow{display:flex;gap:10px;align-items:center;cursor:pointer}
+
+/* v1.7.1: category list controls, MSD chips (one clean pill instead of a box inside a box), MSD field in the new-item dialog, coloured camera/gallery icons */
+.l3{grid-template-columns:1fr 1fr 1fr auto}.l3b{display:flex;gap:2px;justify-content:flex-end;align-items:center}
+@media(max-width:640px){.l3{grid-template-columns:1fr 1fr}.l3b{grid-column:1/-1;justify-content:flex-end}}
+.uchips{padding:0;background:none;border:0;border-radius:0;gap:6px;margin-top:6px}
+.uchip{display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);border:1px solid var(--primary);border-radius:999px;padding:2px 12px;padding-inline-start:2px;min-height:34px}
+.uchip.noimg{padding-inline-start:12px}
+.uchip img{width:30px;height:30px;border-radius:50%;object-fit:cover}
+.uchip .ul{font-size:11px;font-weight:700;color:var(--primary)}.uchip b{font-size:15px;font-weight:800;color:var(--text);letter-spacing:.3px}
+.msdf{background:var(--primary-soft);border:1.5px solid var(--primary);border-radius:12px;padding:8px 10px}
+.msdf>span{font-size:14px;font-weight:700;color:var(--text)}.msdf input{font-size:20px;font-weight:800;border:2px solid var(--primary);background:var(--card);min-height:46px}
+.msdf[hidden]{display:none}
+.ic.ico{flex:none;vertical-align:middle}

@@ -20,8 +20,8 @@ export function nm(e, lg = S.cfg.lang) {
   if (lg === 'tr') return e.tr || (e.he ? suggestTr(e.he) : '') || e.en || '';
   return e.he || e.en || e.tr || '';
 }
-// category order used everywhere (chips, headings): power tools right after "All"
-export const orderedCats = () => [...S.cats.filter(c => c.id === 'c_etools'), ...S.cats.filter(c => c.id !== 'c_etools')];
+// category order used everywhere (chips, headings, pickers, exports) = the order of S.cats
+export const orderedCats = () => S.cats;   // the order is the user's own (Settings > Categories); default order starts with power tools
 export const catOf = id => S.cats.find(c => c.id === id);
 export const unitOf = id => S.units.find(u => u.id === id);
 export const siteOf = id => S.sites.find(s => s.id === id);
@@ -55,6 +55,7 @@ export async function init() {
   await applyShapirImport();
   await applyExtra();
   await applyUpdate170();
+  await applyCats171();
   await applyRemovals();
 }
 // One-time: cables/wires/conduits etc. were all 'unit'; set them to meters (only where the user did not change the unit).
@@ -106,6 +107,24 @@ async function applyPack(flag, file) {
     if (ch.length) { await db.putMany('items', [...new Set(ch)]); reindex(); await log('catalog', `${flag} ${ch.length}`); }
     S.cfg[flag] = true; await db.kvSet('cfg', S.cfg);
   } catch (e) { /* offline: retry next start */ }
+}
+// One-time per device (v1.7.1): new default category order, "שונות ושירותים" -> "שונות", the "תליה ובטיחות" category is removed (its items move to "שונות").
+// Categories the user added keep their relative order after the listed ones.
+async function applyCats171() {
+  if (S.cfg.cats171) return;
+  try {
+    const ORDER = ['c_etools', 'c_tools', 'c_conduit', 'c_wire', 'c_box', 'c_lug', 'c_nail', 'c_screw', 'c_acc', 'c_board'], now = new Date().toISOString(), ch = [];
+    const misc = S.cats.find(c => c.id === 'c_misc');
+    if (misc) { if (misc.he === 'שונות ושירותים') misc.he = 'שונות'; if (misc.en === 'Misc & services') misc.en = 'Misc'; }
+    if (S.cats.some(c => c.id === 'c_hang')) {
+      const to = S.cats.some(c => c.id === 'c_misc') ? 'c_misc' : S.cats.some(c => c.id === 'c_acc') ? 'c_acc' : '';
+      if (to) { for (const it of S.items) if (it.cat === 'c_hang') { it.cat = to; it.updatedAt = now; ch.push(it); } S.cats = S.cats.filter(c => c.id !== 'c_hang'); }
+    }
+    const rank = id => { const i = ORDER.indexOf(id); return i < 0 ? 999 : i; };
+    S.cats = S.cats.map((c, i) => [c, i]).sort((a, b) => rank(a[0].id) - rank(b[0].id) || a[1] - b[1]).map(x => x[0]);
+    await db.kvSet('cats', S.cats); if (ch.length) { await db.putMany('items', ch); reindex(); await log('catalog', `cats171 ${ch.length}`); }
+    S.cfg.cats171 = true; await db.kvSet('cfg', S.cfg);
+  } catch (e) { /* retry next start */ }
 }
 const applyExtra = () => applyPack('extra163', 'data/extra.json');
 const applyUpdate170 = () => applyPack('upd170', 'data/update170.json');
@@ -223,7 +242,7 @@ async function replaceCatalog({ items, images, cats, units, groups, sites, reimp
   const uni = (cur, base) => [...base, ...cur.filter(x => !base.some(b => b.id === x.id))];
   await db.kvSet('cats', uni(S.cats, cats)); await db.kvSet('units', uni(S.units, units)); await db.kvSet('groups', uni(S.groups, groups));
   await db.kvSet('sites', [...S.sites, ...sites.filter(x => !S.sites.some(c => c.id === x.id))]);
-  S.cfg.unitFix140 = true; S.cfg.extra163 = !reimportShapir; S.cfg.upd170 = !reimportShapir; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
+  S.cfg.unitFix140 = true; S.cfg.extra163 = !reimportShapir; S.cfg.upd170 = !reimportShapir; S.cfg.cats171 = !reimportShapir; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
   await init(); emit();
 }
 export async function importCatalog(b) {

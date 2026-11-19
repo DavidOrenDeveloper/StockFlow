@@ -61,7 +61,7 @@ const EN = {
 const D = { he: HE, en: EN };
 export const getLang = () => S.cfg.lang;
 // the word "MSD" (the number engraved on a tool): Hebrew מס"ד / real English "Serial No." / Hebrew-in-Latin-letters MASAD
-export const msdW = (form = 'one') => { const l = S.cfg.lang === 'he' ? 'he' : S.cfg.lang === 'tr' ? 'tr' : 'en'; return ({ one: { he: 'מס"ד', en: 'Serial No.', tr: 'MASAD' }, pl: { he: 'מס"דים', en: 'Serial Nos.', tr: 'MASADIM' } })[form][l]; };
+export const msdW = (form = 'one') => { const l = S.cfg.lang === 'he' ? 'he' : S.cfg.lang === 'tr' ? 'tr' : 'en'; return ({ one: { he: 'מס"ד', en: 'Serial Number', tr: 'MASAD' }, pl: { he: 'מס"דים', en: 'Serial Numbers', tr: 'MASADIM' } })[form][l]; };
 const ui = () => (S.cfg.lang === 'he' ? 'he' : 'en');
 export const dir = () => (ui() === 'he' ? 'rtl' : 'ltr');
 export function t(k, v) {

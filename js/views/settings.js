@@ -1,4 +1,4 @@
-import { S, setCfg, saveList, pendingUpdates, exportUpdatesBlob, markUpdatesSent, itemsFromIds, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
+import { S, nm, setCfg, saveList, pendingUpdates, exportUpdatesBlob, markUpdatesSent, itemsFromIds, backupAll, restoreAll, log, exportCatalogBlob, importCatalog, restoreDefaultCatalog } from '../store.js';
 import { t, setLang } from '../i18n.js';
 import { esc, fmtDateTime, download, shareOrDownload, stamp, readFileText, toast, uid, safeName } from '../util.js';
 import { ic } from '../icons.js';
@@ -135,13 +135,26 @@ export function listEditor(kind) {
   const draw = () => {
     m.$('.mbody').innerHTML = `<p class="hint">${esc(t('list_hint'))}</p><div class="list3">${S[kind].map(x => `<div class="l3" data-id="${x.id}">
       <input data-k="he" dir="rtl" value="${esc(x.he)}" placeholder="עברית"><input data-k="en" dir="ltr" value="${esc(x.en || '')}" placeholder="English"><input data-k="tr" dir="ltr" value="${esc(x.tr || '')}" placeholder="ABC" style="text-transform:uppercase">
-      <button class="icon-btn" data-wand title="${esc(t('suggest'))}">${ic('wand', 18)}</button><button class="icon-btn danger" data-rm>${ic('trash', 18)}</button></div>`).join('')}</div>
+      <div class="l3b">${kind === 'cats' ? `<button class="icon-btn" data-up aria-label="up">${ic('up', 18)}</button><button class="icon-btn" data-down aria-label="down">${ic('down', 18)}</button>` : ''}<button class="icon-btn" data-wand title="${esc(t('suggest'))}">${ic('wand', 18)}</button><button class="icon-btn danger" data-rm>${ic('trash', 18)}</button></div></div>`).join('')}</div>
       <div class="btnrow"><button class="btn" data-add>${ic('plus', 16)} ${esc(t('add'))}</button></div>`;
     m.$$('.l3').forEach(r => {
       const x = S[kind].find(i => i.id === r.dataset.id);
       r.querySelectorAll('input').forEach(i => i.onchange = async () => { x[i.dataset.k] = i.value.trim(); await saveList(kind); });
       r.querySelector('[data-wand]').onclick = async () => { const he = r.querySelector('[data-k=he]').value; x.en = suggestEn(he); x.tr = suggestTr(he); await saveList(kind); draw(); };
-      r.querySelector('[data-rm]').onclick = async () => { if (S[kind].length < 2) return; if (await confirmDlg(t('confirm_delete_list'), { danger: true, ok: t('delete') })) { S[kind] = S[kind].filter(i => i.id !== x.id); const fb = S[kind][0].id; if (kind === 'cats') S.items.forEach(i => { if (i.cat === x.id) i.cat = fb; }); if (kind === 'units') S.items.forEach(i => { if (i.unit === x.id) i.unit = fb; }); if (kind !== 'sites') { const { putMany } = await import('../db.js'); await putMany('items', S.items); } await saveList(kind); draw(); } };
+      const mv = async (d) => { const arr = S[kind], i = arr.findIndex(c => c.id === x.id), j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; await saveList(kind); draw(); m.$(`.l3[data-id="${x.id}"]`)?.scrollIntoView({ block: 'nearest' }); };
+      r.querySelector('[data-up]')?.addEventListener('click', () => mv(-1)); r.querySelector('[data-down]')?.addEventListener('click', () => mv(1));
+      r.querySelector('[data-rm]').onclick = async () => {
+        if (S[kind].length < 2) return;
+        const fin = async (fb) => { S[kind] = S[kind].filter(i => i.id !== x.id); if (kind === 'cats') S.items.forEach(i => { if (i.cat === x.id) i.cat = fb; }); if (kind === 'units') S.items.forEach(i => { if (i.unit === x.id) i.unit = fb; }); if (kind !== 'sites') { const { putMany } = await import('../db.js'); await putMany('items', S.items); } await saveList(kind); draw(); };
+        if (kind === 'cats') {   // ask where the items of this category should go
+          const n = S.items.filter(i => i.cat === x.id).length, he = S.cfg.lang === 'he', others = S.cats.filter(c => c.id !== x.id);
+          if (!n) { if (await confirmDlg(t('confirm_delete_list'), { danger: true, ok: t('delete') })) await fin(others[0].id); return; }
+          const dm = openModal({ title: he ? 'מחיקת קטגוריה' : 'Delete category', content: `<p>${esc(he ? `ב"${x.he}" יש ${n} פריטים. לאיזו קטגוריה להעביר אותם?` : `"${x.en || x.he}" has ${n} items. Which category should they move to?`)}</p><label class="fld"><select data-to>${others.map(c => `<option value="${c.id}" ${c.id === 'c_misc' ? 'selected' : ''}>${esc(nm(c, 'he'))}${c.en ? ' · ' + esc(c.en) : ''}</option>`).join('')}</select></label>`, actions: `<button class="btn" data-no>${esc(t('cancel'))}</button><span class="grow"></span><button class="btn danger" data-ok>${esc(t('delete'))}</button>` });
+          dm.$('[data-no]').onclick = () => dm.close(); dm.$('[data-ok]').onclick = async () => { const to = dm.$('[data-to]').value; dm.close(); await fin(to); };
+          return;
+        }
+        if (await confirmDlg(t('confirm_delete_list'), { danger: true, ok: t('delete') })) await fin(S[kind].find(i => i.id !== x.id).id);
+      };
     });
     m.$('[data-add]').onclick = async () => { S[kind].push({ id: uid(kind[0] + '_'), he: '', en: '', tr: '' }); await saveList(kind); draw(); m.$$('.l3').pop().querySelector('input').focus(); };
   };
