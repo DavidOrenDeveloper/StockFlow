@@ -165,3 +165,10 @@ label.logrow{display:flex;gap:10px;align-items:center;cursor:pointer}
 .msdf>span{font-size:14px;font-weight:700;color:var(--text)}.msdf input{font-size:20px;font-weight:800;border:2px solid var(--primary);background:var(--card);min-height:46px}
 .msdf[hidden]{display:none}
 .ic.ico{flex:none;vertical-align:middle}
+
+/* v1.7.2: clear "inside the basket" mode + items that are not in this device's catalog */
+.cartbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:var(--primary);color:#fff;border-radius:12px;padding:8px 12px;margin:2px 0}
+.cartbar svg{flex:none}.cartbar span{flex:1;min-width:120px;font-size:13px;opacity:.95}
+.cartbar .btn{background:#fff;color:var(--primary);border-color:#fff;font-weight:700}
+.page.editor.incart .stk{border-bottom:3px solid var(--primary)}
+.notcat{display:inline-block;margin-inline-start:6px;padding:1px 8px;border-radius:999px;background:var(--warn-soft,#fef3c7);color:#92400e;font-size:11px;font-weight:700}

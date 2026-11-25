@@ -56,6 +56,7 @@ export async function init() {
   await applyExtra();
   await applyUpdate170();
   await applyCats171();
+  await applyUpdate172();
   await applyRemovals();
 }
 // One-time: cables/wires/conduits etc. were all 'unit'; set them to meters (only where the user did not change the unit).
@@ -128,17 +129,18 @@ async function applyCats171() {
 }
 const applyExtra = () => applyPack('extra163', 'data/extra.json');
 const applyUpdate170 = () => applyPack('upd170', 'data/update170.json');
+const applyUpdate172 = () => applyPack('upd172', 'data/update172.json');   // SKUs moved onto the clear-photo wire items (their Shapir duplicates are removed by remove.json v2)
 // Removes catalog items listed in data/remove.json (moving quantities already entered in documents to the replacement item).
 async function applyRemovals() {
-  if ((S.cfg.removeV || 0) >= 1) return;
   try {
     const j = await (await fetch('data/remove.json', { cache: 'no-cache' })).json();
+    if ((S.cfg.removeV || 0) >= (j.v || 1)) return;
     for (const [from, to] of Object.entries(j.map || {})) {
       if (!S.byId.has(from)) continue;
       if (to && S.byId.has(to)) for (const d of S.docs) if (d.lines[from] != null) { if (d.lines[to] == null) d.lines[to] = d.lines[from]; delete d.lines[from]; await saveDoc(d, { quiet: true }); }
       await deleteItem(from);
     }
-    S.cfg.removeV = 1; await db.kvSet('cfg', S.cfg);
+    S.cfg.removeV = j.v || 1; await db.kvSet('cfg', S.cfg);
   } catch (e) { /* offline: retry next start */ }
 }
 export async function addSite(name) {   // free-text site / location typed by the user
@@ -242,7 +244,7 @@ async function replaceCatalog({ items, images, cats, units, groups, sites, reimp
   const uni = (cur, base) => [...base, ...cur.filter(x => !base.some(b => b.id === x.id))];
   await db.kvSet('cats', uni(S.cats, cats)); await db.kvSet('units', uni(S.units, units)); await db.kvSet('groups', uni(S.groups, groups));
   await db.kvSet('sites', [...S.sites, ...sites.filter(x => !S.sites.some(c => c.id === x.id))]);
-  S.cfg.unitFix140 = true; S.cfg.extra163 = !reimportShapir; S.cfg.upd170 = !reimportShapir; S.cfg.cats171 = !reimportShapir; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
+  S.cfg.unitFix140 = true; S.cfg.extra163 = !reimportShapir; S.cfg.upd170 = !reimportShapir; S.cfg.cats171 = !reimportShapir; S.cfg.upd172 = !reimportShapir; if (reimportShapir) S.cfg.removeV = 0; S.cfg.shapirAll150 = !reimportShapir; S.cfg.imgPre150 = false; await db.kvSet('cfg', S.cfg);
   await init(); emit();
 }
 export async function importCatalog(b) {

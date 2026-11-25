@@ -14,7 +14,7 @@ export function render(root, { id }) {
   if (!doc) { root.innerHTML = `<div class="page"><div class="empty"><p>${esc(t('not_found'))}</p><a class="btn primary" href="#/files">${esc(t('back'))}</a></div></div>`; return; }
   const isCount = doc.type === 'count';
   const prev = isCount ? null : lastCount(doc.site, doc.id);   // previous count of the site: shows "in stock" in orders
-  let q = '', cat = '', flt = 'all', saved = doc.updatedAt, progTxt = '';
+  let q = '', cat = '', flt = 'all', inCart = false, saved = doc.updatedAt, progTxt = '';
   const he_ = S.cfg.lang === 'he', uiKey = 'sf_ui_' + doc.id;
   root.innerHTML = `<div class="page editor">
     <div class="stk">
@@ -52,8 +52,14 @@ export function render(root, { id }) {
   const catList = orderedCats;   // same order as the catalog: power tools right after "All"
   const hidN = () => Object.keys(doc.hidden || {}).filter(id => S.byId.has(id)).length;
   const hidPill = () => [['hidden', `${S.cfg.lang === 'he' ? 'מוסתרים' : 'Hidden'} (${hidN()})`]];
+  // items of this document that are not in this device's catalog (e.g. new items a worker created on his phone, kept in the document snapshot) are shown too
+  const catIdByName = n => (S.cats.find(c => c.he === n) || {}).id || '__x';
+  const snapItems = () => Object.keys(doc.lines).filter(id => !S.byId.has(id) && doc.snap?.[id]).map((id, i) => { const s = doc.snap[id]; return { id, sku: s.sku || '', he: s.he || '', en: s.en || '', tr: s.tr || '', cat: catIdByName(s.cat), unit: '', unitObj: { he: s.unit || '', en: s.unitEn || '', tr: s.unitTr || '' }, syn: [], snapOnly: true, order: 1e9 + i }; });
+  const poolAll = () => [...S.items, ...snapItems()];
+  const getIt = id => S.byId.get(id) || snapItems().find(x => x.id === id);
+  const inCartF = it => { const v = doc.lines[it.id]; return !doc.hidden?.[it.id] && (isCount ? v != null : v > 0); };
   const hideBtn = it => `<button class="btn sm" style="padding:1px 8px;font-size:11px;margin-top:3px" ${doc.hidden?.[it.id] ? 'data-unhide' : 'data-hide'}>${S.cfg.lang === 'he' ? (doc.hidden?.[it.id] ? 'החזר למסמך' : 'הסתר ממסמך זה') : (doc.hidden?.[it.id] ? 'Restore' : 'Hide from this doc')}</button>`;
-  const stats = () => { const n = Object.keys(doc.lines).filter(id => !doc.hidden?.[id]).length, tot = S.items.length - hidN(); return { n, tot, ord: Object.values(doc.lines).filter(v => v > 0).length }; };
+  const stats = () => { const sn = snapItems().filter(i => !doc.hidden?.[i.id]).length, n = Object.keys(doc.lines).filter(id => !doc.hidden?.[id]).length, tot = S.items.length - hidN() + sn; return { n, tot, ord: Object.values(doc.lines).filter(v => v > 0).length }; };
   function progress() {
     const s = stats(), pct = isCount ? s.n / (s.tot || 1) : Math.min(1, s.ord / 12);
     { const cn = $('#cartN'); if (cn) cn.textContent = isCount ? s.n : s.ord; }
@@ -61,7 +67,13 @@ export function render(root, { id }) {
     progTxt = isCount ? t('counted_of', { n: s.n, t: s.tot }) : t('ordered_lines', { n: s.ord }); head();
   }
   function filters() {
-    const s = stats(); { const cb = $('#cartBtn'); if (cb) cb.classList.toggle('primary', flt === 'added'); }
+    const s = stats(); { const cb = $('#cartBtn'); if (cb) cb.classList.toggle('primary', inCart); } root.firstElementChild.classList.toggle('incart', inCart);
+    if (inCart) {
+      const cl = poolAll().filter(inCartF), cnt = id => cl.filter(i => i.cat === id).length;
+      $('#fl').innerHTML = `<div class="cartbar">${ic('cart', 18)} <b>${he_ ? 'אתה בתוך העגלה' : 'You are inside the basket'}</b><span>${he_ ? `${cl.length} פריטים · מוצגים רק הפריטים שנוספו` : `${cl.length} items · only added items are shown`}</span><button class="btn sm" data-exitcart type="button">${he_ ? 'יציאה לקטלוג' : 'Back to catalog'}</button></div>`;
+      $('#cats').innerHTML = `<button class="pill ${!cat ? 'on' : ''}" data-c="">${esc(t('all_cats'))} (${cl.length})</button>` + [...catList(), { id: '__x', he: 'אחר', en: 'Other' }].filter(c => cnt(c.id)).map(c => `<button class="pill ${cat === c.id ? 'on' : ''}" data-c="${c.id}">${esc(nm(c))} (${cnt(c.id)})</button>`).join('');
+      return;
+    }
     $('#fl').innerHTML = isCount
       ? [['all', t('all')], ['uncounted', `${t('show_uncounted')} (${s.tot - s.n})`], ['counted', t('counted')], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ['sku', S.cfg.lang === 'he' ? 'רק עם מק"ט' : 'With SKU only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('')
       : [['all', t('all')], ['ordered', `${t('ordered')} (${s.ord})`], ['img', S.cfg.lang === 'he' ? 'רק עם תמונה' : 'With image only'], ['sku', S.cfg.lang === 'he' ? 'רק עם מק"ט' : 'With SKU only'], ...hidPill()].map(([k, l]) => `<button class="pill ${flt === k ? 'on' : ''}" data-fl="${k}">${esc(l)}</button>`).join('');
@@ -70,7 +82,7 @@ export function render(root, { id }) {
   const passes = it => {
     if (cat && it.cat !== cat) return false; const v = doc.lines[it.id];
     if (flt === 'hidden') return !!doc.hidden?.[it.id]; if (doc.hidden?.[it.id]) return false;
-    if (flt === 'added') return isCount ? v != null : v > 0;
+    if (inCart && !inCartF(it)) return false;
     if (flt === 'img' && !imgOf(it)) return false; if (flt === 'sku' && !it.sku) return false;
     if (flt === 'uncounted') return v == null; if (flt === 'counted') return v != null; if (flt === 'ordered') return v > 0;
     return true;
@@ -81,13 +93,13 @@ export function render(root, { id }) {
     const note = doc.notes?.[it.id] || '';
     return `<div class="row ${v == null ? '' : v === 0 ? 'zero' : 'has'}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 24)}</button>
-      <div class="info"><div class="n1">${bidi(nm(it))} <button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}">${ic('edit', 14)}</button></div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>
+      <div class="info"><div class="n1">${bidi(nm(it))} ${it.snapOnly ? `<small class="notcat">${he_ ? 'לא בקטלוג' : 'not in catalog'}</small>` : `<button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}">${ic('edit', 14)}</button>`}</div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(it.unitObj || unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>
         ${hideBtn(it)} <button class="btn sm lnkb" data-note type="button">${note ? (he_ ? 'ערוך הערה' : 'Edit note') : (he_ ? '+ הערה' : '+ Note')}</button>${isCount && it.cat === 'c_etools' ? ` <button class="btn sm lnkb msdb" data-msd type="button">${msdW('pl')}${(doc.units?.[it.id] || []).length ? ` (${doc.units[it.id].length}) ${ic('edit', 12)}` : ''}</button>` : ''}${isCount && (doc.units?.[it.id] || []).length ? `<div class="uchips">${doc.units[it.id].map(u => `<button class="uchip${u.img ? '' : ' noimg'}" data-msd type="button" title="${he_ ? 'עריכה' : 'Edit'}">${u.img ? `<img src="${u.img}" alt="">` : ''}<span class="ul">${msdW()}</span><b dir="ltr">${esc(u.msd || '—')}</b></button>`).join('')}</div>` : ''}</div>
       <div class="qty"><button data-dec aria-label="-">${ic('minus', 18)}</button><input inputmode="decimal" autocomplete="off" value="${v == null ? '' : fmtQty(v)}" placeholder="${isCount ? '—' : '0'}" aria-label="${esc(nm(it))}"><button data-inc aria-label="+">${ic('plus', 18)}</button>${isCount ? `<button class="clr" data-clr style="visibility:${v != null ? 'visible' : 'hidden'}" title="${esc(t('uncount'))}">${ic('x', 14)}</button>` : ''}</div>${note ? noteRow(note) : ''}</div>`;
   }
   // power tools: every physical tool = one photo + ITS OWN MSD number (the number engraved on that tool). Stored only inside this count (never in the catalog); can be copied from the last count of the same site.
   function unitsDlg(id) {
-    const it = S.byId.get(id); if (!it) return;
+    const it = getIt(id); if (!it) return;
     let us = structuredClone(doc.units?.[id] || []);
     const prevU = lastCount(doc.site, doc.id)?.units?.[id] || [];
     const m = openModalU({ title: `${nm(it)} – ${he_ ? 'מס"ד לכל כלי' : msdW() + ' per tool'}`, wide: true, content: '<div data-ul></div>',
@@ -129,14 +141,17 @@ export function render(root, { id }) {
   const draw0 = () => draw();
   function draw() {
     let html = '';
+    const pool = poolAll();
     if (q.trim()) {
-      const r = runSearch(q), ex = r.exact.filter(x => passes(x.it)), ap = r.approx.filter(x => passes(x.it));
-      if (ex.length) html += `<h3 class="grp">${esc(t('exact_matches'))}</h3>${ex.map(x => rowHtml(x.it)).join('')}`;
+      const r = runSearch(q), ql = q.trim().toLowerCase(), ex = r.exact.filter(x => passes(x.it)), ap = r.approx.filter(x => passes(x.it));
+      const sx = snapItems().filter(i => passes(i) && `${i.he} ${i.en} ${i.tr} ${i.sku}`.toLowerCase().includes(ql));
+      const exr = [...ex.map(x => x.it), ...sx];
+      if (exr.length) html += `<h3 class="grp">${esc(t('exact_matches'))}</h3>${exr.map(rowHtml).join('')}`;
       if (ap.length) html += `<h3 class="grp soft">${esc(t('similar_matches'))}</h3>${ap.map(x => rowHtml(x.it)).join('')}`;
-      if (!ex.length && !ap.length) html = `<div class="empty"><p>${esc(t('no_results'))}</p></div>`;
+      if (!exr.length && !ap.length) html = `<div class="empty"><p>${esc(t('no_results'))}</p></div>`;
     } else {
-      for (const c of catList()) { const its = S.items.filter(i => i.cat === c.id && passes(i)); if (its.length) html += `<h3 class="grp">${esc(nm(c))} <b>${its.length}</b></h3>${its.map(rowHtml).join('')}`; }
-      if (!html) html = `<div class="empty"><p>${esc(flt === 'uncounted' ? t('all_counted') : t('no_results'))}</p></div>`;
+      for (const c of [...catList(), { id: '__x', he: 'אחר', en: 'Other' }]) { const its = pool.filter(i => i.cat === c.id && passes(i)); if (its.length) html += `<h3 class="grp">${esc(nm(c))} <b>${its.length}</b></h3>${its.map(rowHtml).join('')}`; }
+      if (!html) html = `<div class="empty"><p>${esc(inCart ? (he_ ? 'העגלה ריקה בקטגוריה הזו' : 'Nothing in the basket for this category') : flt === 'uncounted' ? t('all_counted') : t('no_results'))}</p></div>`;
     }
     $('#list').innerHTML = html;
   }
@@ -156,7 +171,7 @@ export function render(root, { id }) {
     const row = e.target.closest('.row'); if (!row) return; const id = row.dataset.id, cur = doc.lines[id];
     if (e.target.closest('[data-inc],[data-dec],[data-clr]')) push({ id, v: cur });
     if (e.target.closest('[data-hide]')) push({ id, h: false }); if (e.target.closest('[data-unhide]')) push({ id, h: true });
-    if (e.target.closest('[data-zoom]')) { const it = S.byId.get(id); zoomImg(imgOf(it), nm(it)); }
+    if (e.target.closest('[data-zoom]')) { const it = getIt(id); if (imgOf(it)) zoomImg(imgOf(it), nm(it)); }
     else if (e.target.closest('[data-edit]')) { editItem(S.byId.get(id), { onDone: () => { filters(); draw(); progress(); } }); }
     else if (e.target.closest('[data-msd]')) unitsDlg(id);
     else if (e.target.closest('[data-note]')) { let ni = row.querySelector('[data-note-in]'); if (!ni) { row.insertAdjacentHTML('beforeend', noteRow('')); ni = row.querySelector('[data-note-in]'); } ni.focus(); }
@@ -166,7 +181,7 @@ export function render(root, { id }) {
     else if (e.target.closest('[data-hide]')) { (doc.hidden ||= {})[id] = true; persist(); filters(); draw(); progress(); }
     else if (e.target.closest('[data-unhide]')) { delete doc.hidden[id]; if (!hidN()) flt = 'all'; persist(); filters(); draw(); progress(); }
   });
-  $('#fl').onclick = e => { const b = e.target.closest('[data-fl]'); if (b) { flt = b.dataset.fl; filters(); draw(); saveUi(); } };
+  $('#fl').onclick = e => { if (e.target.closest('[data-exitcart]')) { inCart = false; cat = ''; filters(); draw(); saveUi(); return; } const b = e.target.closest('[data-fl]'); if (b) { flt = b.dataset.fl; filters(); draw(); saveUi(); } };
   $('#cats').onclick = e => { const b = e.target.closest('[data-c]'); if (b) { cat = b.dataset.c; filters(); draw(); saveUi(); } };
   $('#q').oninput = debounce(e => { q = e.target.value; $('#qx').hidden = !q; draw(); saveUi(); }, 120);
   $('#qx').onmousedown = e => e.preventDefault();   // clearing must not close the keyboard
@@ -174,13 +189,13 @@ export function render(root, { id }) {
   // new item that is not in the catalog yet (goes into the catalog and straight into this sheet)
   $('#newItemBtn').onclick = () => { const it = newItem(); it.he = q.trim(); editItem(it, { isNew: true, withMsd: isCount, onDone: (o, x) => { if (!o) return; if (!isCount) doc.lines[o.id] = 1; if (isCount && x?.msd) { (doc.units ||= {})[o.id] = [{ msd: x.msd, img: '' }]; doc.lines[o.id] = 1; } q = o.he || o.en || ''; $('#q').value = q; $('#qx').hidden = !q; persist(); filters(); draw(); progress(); } }); };
   $('#undoBtn').onclick = undoLast;
-  $('#cartBtn').onclick = () => { flt = flt === 'added' ? 'all' : 'added'; filters(); draw(); progress(); };
+  $('#cartBtn').onclick = () => { inCart = !inCart; cat = ''; filters(); draw(); progress(); saveUi(); scrollTo(0, 0); };
   $('#saveBtn').onclick = async () => { await persist(); toast(t('draft_saved')); location.hash = '#/' + (isCount ? 'counts' : 'orders'); };
   $('#exp').onclick = async () => { await persist(); exportDialog({ kind: 'doc', doc }); };
   const vis = () => { if (document.hidden) persist(); }; document.addEventListener('visibilitychange', vis);
-  const saveUi = debounce(() => { try { localStorage.setItem(uiKey, JSON.stringify({ q, cat, flt, y: Math.round(scrollY) })); } catch (e) { /* ignore */ } }, 300);
+  const saveUi = debounce(() => { try { localStorage.setItem(uiKey, JSON.stringify({ q, cat, flt, cart: inCart, y: Math.round(scrollY) })); } catch (e) { /* ignore */ } }, 300);
   let restoreY = 0;
-  try { const u = JSON.parse(localStorage.getItem(uiKey) || 'null'); if (u) { q = u.q || ''; cat = u.cat || ''; flt = u.flt || 'all'; if (flt === 'hidden' && !hidN()) flt = 'all'; restoreY = u.y || 0; $('#q').value = q; $('#qx').hidden = !q; } } catch (e) { /* ignore */ }
+  try { const u = JSON.parse(localStorage.getItem(uiKey) || 'null'); if (u) { q = u.q || ''; cat = u.cat || ''; flt = u.flt || 'all'; inCart = !!u.cart || flt === 'added'; if (flt === 'added') flt = 'all'; if (flt === 'hidden' && !hidN()) flt = 'all'; restoreY = u.y || 0; $('#q').value = q; $('#qx').hidden = !q; } } catch (e) { /* ignore */ }
   window.addEventListener('scroll', saveUi, { passive: true });
   head(); filters(); progress(); draw(); if (restoreY) setTimeout(() => scrollTo(0, restoreY), 80);
   return () => { document.removeEventListener('visibilitychange', vis); window.removeEventListener('scroll', saveUi); persist(); };
