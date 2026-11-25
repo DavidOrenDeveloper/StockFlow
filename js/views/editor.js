@@ -1,5 +1,5 @@
 // Stock-count / order editor. Empty = not checked yet; 0 = checked, none. Auto-saves as draft after every change.
-import { S, nm, unitOf, imgOf, runSearch, saveDoc, siteOf, DOC_STATUS, lastCount, log, newItem, addSite, orderedCats } from '../store.js';
+import { S, nm, unitOf, imgOf, runSearch, saveDoc, siteOf, DOC_STATUS, lastCount, log, newItem, addSite, orderedCats, saveItem } from '../store.js';
 import { t, msdW } from '../i18n.js';
 import { openModal as openModalU, confirmDlg as confirmDlgU } from '../modal.js';
 import { resizeImage as resizeImageU, blobToDataURL as blobToDataURLU } from '../util.js';
@@ -93,7 +93,7 @@ export function render(root, { id }) {
     const note = doc.notes?.[it.id] || '';
     return `<div class="row ${v == null ? '' : v === 0 ? 'zero' : 'has'}" data-id="${it.id}">
       <button class="thumb" data-zoom="${it.id}">${u ? `<img loading="lazy" src="${u}" alt="">` : ic('image', 24)}</button>
-      <div class="info"><div class="n1">${bidi(nm(it))} ${it.snapOnly ? `<small class="notcat">${he_ ? 'לא בקטלוג' : 'not in catalog'}</small>` : `<button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}">${ic('edit', 14)}</button>`}</div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(it.unitObj || unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>
+      <div class="info"><div class="n1">${bidi(nm(it))} ${it.snapOnly ? `<small class="notcat">${he_ ? 'לא בקטלוג' : 'not in catalog'}</small>` : ''}<button class="rowed" data-edit type="button" aria-label="${he_ ? 'עריכת פריט' : 'Edit item'}" title="${it.snapOnly ? (he_ ? 'עריכה והוספה לקטלוג' : 'Edit and add to catalog') : ''}">${ic('edit', 14)}</button></div>${it.sku ? `<div class="sku${String(it.sku).length > 11 ? ' long' : ''}">${esc(t('sku'))}: <span class="mono">${esc(it.sku)}</span></div>` : ''}<div class="n2">${S.cfg.lang === 'he' ? 'יחידת מידה' : 'Unit'}: <b>${esc(nm(it.unitObj || unitOf(it.unit)))}</b>${!isCount && pc != null ? ` · ${esc(t('in_stock'))} ${fmtQty(pc)}` : ''}</div>
         ${hideBtn(it)} <button class="btn sm lnkb" data-note type="button">${note ? (he_ ? 'ערוך הערה' : 'Edit note') : (he_ ? '+ הערה' : '+ Note')}</button>${isCount && it.cat === 'c_etools' ? ` <button class="btn sm lnkb msdb" data-msd type="button">${msdW('pl')}${(doc.units?.[it.id] || []).length ? ` (${doc.units[it.id].length}) ${ic('edit', 12)}` : ''}</button>` : ''}${isCount && (doc.units?.[it.id] || []).length ? `<div class="uchips">${doc.units[it.id].map(u => `<button class="uchip${u.img ? '' : ' noimg'}" data-msd type="button" title="${he_ ? 'עריכה' : 'Edit'}">${u.img ? `<img src="${u.img}" alt="">` : ''}<span class="ul">${msdW()}</span><b dir="ltr">${esc(u.msd || '—')}</b></button>`).join('')}</div>` : ''}</div>
       <div class="qty"><button data-dec aria-label="-">${ic('minus', 18)}</button><input inputmode="decimal" autocomplete="off" value="${v == null ? '' : fmtQty(v)}" placeholder="${isCount ? '—' : '0'}" aria-label="${esc(nm(it))}"><button data-inc aria-label="+">${ic('plus', 18)}</button>${isCount ? `<button class="clr" data-clr style="visibility:${v != null ? 'visible' : 'hidden'}" title="${esc(t('uncount'))}">${ic('x', 14)}</button>` : ''}</div>${note ? noteRow(note) : ''}</div>`;
   }
@@ -167,12 +167,12 @@ export function render(root, { id }) {
   $('#list').addEventListener('focusin', e => { if (e.target.tagName === 'INPUT' && !e.target.matches('[data-note-in]')) { typed = null; e.target.select(); } });
   // keep the keyboard / focus while tapping +, -, etc. while the search box is active (no layout jumps)
   $('#list').addEventListener('mousedown', e => { if (document.activeElement === $('#q') && e.target.closest('button')) e.preventDefault(); });
-  $('#list').addEventListener('click', e => {
+  $('#list').addEventListener('click', async e => {
     const row = e.target.closest('.row'); if (!row) return; const id = row.dataset.id, cur = doc.lines[id];
     if (e.target.closest('[data-inc],[data-dec],[data-clr]')) push({ id, v: cur });
     if (e.target.closest('[data-hide]')) push({ id, h: false }); if (e.target.closest('[data-unhide]')) push({ id, h: true });
     if (e.target.closest('[data-zoom]')) { const it = getIt(id); if (imgOf(it)) zoomImg(imgOf(it), nm(it)); }
-    else if (e.target.closest('[data-edit]')) { editItem(S.byId.get(id), { onDone: () => { filters(); draw(); progress(); } }); }
+    else if (e.target.closest('[data-edit]')) { let it0 = S.byId.get(id); if (!it0) { const sn = getIt(id); if (!sn) return; const u0 = S.units.find(u => (sn.unitObj.he && u.he === sn.unitObj.he) || (sn.unitObj.en && u.en === sn.unitObj.en)); it0 = { ...newItem(), id: sn.id, sku: sn.sku, he: sn.he, en: sn.en, tr: sn.tr, cat: sn.cat === '__x' ? (S.cats[S.cats.length - 1]?.id || '') : sn.cat, unit: u0?.id || S.units[0]?.id || '' }; await saveItem(it0); toast(he_ ? 'הפריט נוסף לקטלוג' : 'Item added to the catalog'); } editItem(it0, { onDone: () => { filters(); draw(); progress(); } }); }
     else if (e.target.closest('[data-msd]')) unitsDlg(id);
     else if (e.target.closest('[data-note]')) { let ni = row.querySelector('[data-note-in]'); if (!ni) { row.insertAdjacentHTML('beforeend', noteRow('')); ni = row.querySelector('[data-note-in]'); } ni.focus(); }
     else if (e.target.closest('[data-inc]')) setQty(row, (cur ?? 0) + 1);
