@@ -172,7 +172,19 @@ export function render(root, { id }) {
     if (e.target.closest('[data-inc],[data-dec],[data-clr]')) push({ id, v: cur });
     if (e.target.closest('[data-hide]')) push({ id, h: false }); if (e.target.closest('[data-unhide]')) push({ id, h: true });
     if (e.target.closest('[data-zoom]')) { const it = getIt(id); if (imgOf(it)) zoomImg(imgOf(it), nm(it)); }
-    else if (e.target.closest('[data-edit]')) { let it0 = S.byId.get(id); if (!it0) { const sn = getIt(id); if (!sn) return; const u0 = S.units.find(u => (sn.unitObj.he && u.he === sn.unitObj.he) || (sn.unitObj.en && u.en === sn.unitObj.en)); it0 = { ...newItem(), id: sn.id, sku: sn.sku, he: sn.he, en: sn.en, tr: sn.tr, cat: sn.cat === '__x' ? (S.cats[S.cats.length - 1]?.id || '') : sn.cat, unit: u0?.id || S.units[0]?.id || '' }; await saveItem(it0); toast(he_ ? 'הפריט נוסף לקטלוג' : 'Item added to the catalog'); } editItem(it0, { onDone: () => { filters(); draw(); progress(); } }); }
+    else if (e.target.closest('[data-edit]')) {
+      const cur = S.byId.get(id), done = () => { filters(); draw(); progress(); };
+      if (cur) { editItem(cur, { onDone: done }); }
+      else {   // item that exists only in this document: edit it here (kept in the document); adding it to the catalog is optional
+        const sn = getIt(id); if (!sn) return;
+        const u0 = S.units.find(u => (sn.unitObj.he && u.he === sn.unitObj.he) || (sn.unitObj.en && u.en === sn.unitObj.en));
+        const tmp = { ...newItem(), id: sn.id, sku: sn.sku, he: sn.he, en: sn.en, tr: sn.tr, cat: sn.cat === '__x' ? (S.cats[S.cats.length - 1]?.id || '') : sn.cat, unit: u0?.id || S.units[0]?.id || '' };
+        editItem(tmp, { local: {
+          save: async o => { const c = S.cats.find(x => x.id === o.cat), u = S.units.find(x => x.id === o.unit); doc.snap[id] = { ...doc.snap[id], sku: o.sku, he: o.he, en: o.en, tr: o.tr, cat: c?.he || doc.snap[id]?.cat || '', catEn: c?.en || '', catTr: c?.tr || '', unit: u?.he || doc.snap[id]?.unit || '', unitEn: u?.en || '', unitTr: u?.tr || '' }; await persist(); },
+          remove: async () => { delete doc.lines[id]; delete doc.snap[id]; if (doc.units) delete doc.units[id]; if (doc.notes) delete doc.notes[id]; await persist(); },
+        }, onDone: done });
+      }
+    }
     else if (e.target.closest('[data-msd]')) unitsDlg(id);
     else if (e.target.closest('[data-note]')) { let ni = row.querySelector('[data-note-in]'); if (!ni) { row.insertAdjacentHTML('beforeend', noteRow('')); ni = row.querySelector('[data-note-in]'); } ni.focus(); }
     else if (e.target.closest('[data-inc]')) setQty(row, (cur ?? 0) + 1);

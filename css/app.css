@@ -172,3 +172,4 @@ label.logrow{display:flex;gap:10px;align-items:center;cursor:pointer}
 .cartbar .btn{background:#fff;color:var(--primary);border-color:#fff;font-weight:700}
 .page.editor.incart .stk{border-bottom:3px solid var(--primary)}
 .notcat{display:inline-block;margin-inline-start:6px;padding:1px 8px;border-radius:999px;background:var(--warn-soft,#fef3c7);color:#92400e;font-size:11px;font-weight:700}
+.localbox{background:var(--primary-soft);border:1px dashed var(--primary);border-radius:12px;padding:10px;margin-top:6px}
